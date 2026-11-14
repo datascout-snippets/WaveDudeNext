@@ -315,6 +315,19 @@ FrameStore: native memory up to the budget, the rest in a temp file (%LOCALAPPDA
   the initialisers (the figure harness strips the attributes, the designer); one Info line after "ready" names the facts
   and the choice. The levers buy memory and readback, never step time: the divisors shrink the captured frames, not the
   grid (at the defaults 11 of the 24 examples exceed 6 GB, Example 7 needs 19 GB; at Low the largest is 2.4 GB).
+  **A browser page is a tier of its own** (2026-11-14, the user's choice: half resolution, every frame, 8-bit):
+  `PreviewTier.Browser`, from `MachineFacts.Browser` (`OperatingSystem.IsBrowser()` in `Read`), whatever the machine
+  has, since the program there has 3 GB for a run's frames and no more; its settings are not kept, so every start of
+  the page makes the choice, and its line reads "In a browser page, with 3.0 GB of memory for a run's frames: the
+  preview is set to …" in place of the machine's facts. **By the arithmetic every one of the 33 examples keeps its
+  frames in that memory** (his question, answered without a run: `RunSpec.StoreBytesAt` on each example's canvas and
+  steps, both planes in all of them; `library_check` reckons it and names an example that does not fit): the largest
+  2.90 GB (Examples 3, 7, 21 and 23: 3,110,400,000 bytes of 3,221,225,472, 106 MB to spare), the default project
+  1.21 GB. **He shortened the two that did not fit, the same day**: Example 7 from 10,000 steps to 6000 (4.83 → 2.90
+  GB) and Example 16 from 10,000 to 9000 (3.14 → 2.83 GB), so what this file says of those two before that day (5000
+  frames each, Example 7's 19 GB at the fixed defaults, frames measured up to 400 of Example 16, which still exist)
+  is of the longer runs; the figures that show Example 16's timeline differ at the next figure run. Seen once in the
+  Debug head: "tier Browser" and that line.
 
 ## The app's rules
 

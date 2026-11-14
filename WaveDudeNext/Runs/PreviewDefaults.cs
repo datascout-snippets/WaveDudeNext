@@ -30,6 +30,9 @@ public enum PreviewTier
 
 	/// <summary>Plenty of memory: full resolution, every frame, 16-bit samples, dithered to 16 bits.</summary>
 	High,
+
+	/// <summary>A browser page, whatever the machine: half resolution, every frame, 8-bit samples.</summary>
+	Browser,
 }
 
 /// <summary>
@@ -43,6 +46,16 @@ public enum PreviewTier
 /// <see cref="PreviewTier.Low"/>; the rest is <see cref="PreviewTier.Middle"/>, the fixed defaults. The thresholds are
 /// tested at 30 and 15 GiB because Windows reports the physical memory a little under the nominal size (15.9 GB on a
 /// 16 GB machine). An unknown drive kind counts as no seek penalty. Pure functions; the harness proves the table.
+/// <para>
+/// A browser page is <see cref="PreviewTier.Browser"/> whatever the machine (2026-11-14, the user's choice): the
+/// program there has 3 GB for a run's frames and no more (<see cref="FrameMemory.Budget(int, long)"/>), and the
+/// settings are not kept, so every start of the page makes this choice. Half resolution with every frame in 8-bit
+/// keeps the frames of every one of the 33 examples in that memory, by <see cref="RunSpec.StoreBytesAt"/>'s
+/// arithmetic on their canvases and steps with both planes: the largest 2.90 GB (Examples 3, 7, 21 and 23), the
+/// default project 1.21 GB. Examples 7 and 16 were shortened for it the same day (10,000 steps each until then,
+/// 4.83 and 3.14 GB; now 6000 and 9000, 2.90 and 2.83 GB). The harness reckons it and names an example that does
+/// not fit; such a run's rest goes to the frame cache, as everywhere.
+/// </para>
 /// </summary>
 public static class PreviewDefaults
 {
@@ -61,6 +74,10 @@ public static class PreviewDefaults
 	/// <summary>The tier of a machine with these facts.</summary>
 	public static PreviewTier TierOf(MachineFacts facts)
 	{
+		if (facts.Browser)
+		{
+			return PreviewTier.Browser;
+		}
 		if (facts.PhysicalBytes >= HighBytes)
 		{
 			return PreviewTier.High;
@@ -74,6 +91,7 @@ public static class PreviewDefaults
 	{
 		PreviewTier.High => new PreviewQuality(1, 1, FrameFormat.Half),
 		PreviewTier.Low => new PreviewQuality(2, 2, FrameFormat.Index),
+		PreviewTier.Browser => new PreviewQuality(2, 1, FrameFormat.Index),
 		_ => new PreviewQuality(1, 1, FrameFormat.Index),
 	};
 
@@ -85,6 +103,7 @@ public static class PreviewDefaults
 	{
 		PreviewTier.High => "full resolution, every frame, 16-bit samples dithered to 16 bits",
 		PreviewTier.Low => "half resolution, every second frame, 8-bit samples",
+		PreviewTier.Browser => "half resolution, every frame, 8-bit samples",
 		_ => "full resolution, every frame, 8-bit samples",
 	};
 }

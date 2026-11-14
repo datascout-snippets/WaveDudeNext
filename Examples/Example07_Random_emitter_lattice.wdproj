@@ -2,7 +2,7 @@
 <Project Version="3" Seed="2016764161">
 	<Description>Collection of 800+ sources distributed over the full animation space and emitting short random wave pulses with a varying frequency.</Description>
 	<Scene DampingEdge="20" Edges="Reflective" />
-	<Simulation Steps="10000" TimeDecay="3" />
+	<Simulation Steps="6000" TimeDecay="3" />
 	<Display>
 		<Field ColorScheme="Ice and fire" Brightness="60" BlackLevel="-0.05" />
 		<Intensity ColorScheme="Default intensity" Brightness="60" />

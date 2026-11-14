@@ -2,7 +2,7 @@
 <Project Version="3" Seed="1006156977">
 	<Description>Two boxes connected by a small pipe that allows for wave energy to flow from left to right (and back).</Description>
 	<Scene Width="1500" Height="900" DampingEdge="11" />
-	<Simulation Steps="10000" TimeDecay="5" />
+	<Simulation Steps="9000" TimeDecay="5" />
 	<Display>
 		<Field ColorScheme="Yellow purple" Brightness="5" BlackLevel="-0.05" />
 		<Intensity ColorScheme="Default intensity" Brightness="5" />

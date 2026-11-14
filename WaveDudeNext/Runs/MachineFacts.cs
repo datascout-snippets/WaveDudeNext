@@ -24,14 +24,16 @@ namespace WaveDudeNext.Runs;
 /// <see cref="PreviewDefaults"/> makes the choice): the physical memory, the processor's threads, the OpenCL GPU the
 /// engine would take and whether the frame cache's drive incurs a seek penalty. <see cref="Read"/> gathers them in a
 /// few milliseconds, most of it the OpenCL enumeration; the record itself is immutable and compared by value, so the
-/// harness builds the facts of machines it does not run on. Thread-free.
+/// harness builds the facts of machines it does not run on. In a browser page the program is not on the machine but
+/// in the page's memory (<see cref="Browser"/>), which decides there whatever the machine has. Thread-free.
 /// </summary>
-/// <param name="PhysicalBytes">Bytes of physical memory as Windows reports them, a little under the nominal size (about 15.9 GB on a 16 GB machine).</param>
+/// <param name="PhysicalBytes">Bytes of physical memory as the system reports them (<see cref="FrameMemory.PhysicalBytes"/>), a little under the nominal size on Windows (about 15.9 GB on a 16 GB machine).</param>
 /// <param name="Threads">Logical processors.</param>
 /// <param name="Gpu">The OpenCL GPU the engine would take, by name, "(shared memory)" added for one integrated with the processor; empty when there is none or OpenCL is missing.</param>
-/// <param name="CacheDrive">The frame cache's drive for a log line ("C:"), or the cache folder's root when it has no drive letter.</param>
-/// <param name="CacheDriveSeekPenalty">Whether the cache drive incurs a seek penalty, a hard disk; null when Windows cannot say (<see cref="StorageDevice.IncursSeekPenalty"/>).</param>
-public sealed record MachineFacts(long PhysicalBytes, int Threads, string Gpu, string CacheDrive, bool? CacheDriveSeekPenalty)
+/// <param name="CacheDrive">The frame cache's volume for a log line (<see cref="StorageDevice.VolumeOf"/>: "C:" on Windows, the mount point on Linux, else the cache folder's root).</param>
+/// <param name="CacheDriveSeekPenalty">Whether the cache drive incurs a seek penalty, a hard disk; null when the system cannot say (<see cref="StorageDevice.IncursSeekPenalty"/>).</param>
+/// <param name="Browser">Whether the program runs in a browser page: <see cref="PhysicalBytes"/> is then the ceiling of the page's WebAssembly memory, of which a run's frames get what <see cref="FrameMemory.Budget(int, long)"/> says, the GPU is not OpenCL's to name and the cache is the storage the browser manages for the page.</param>
+public sealed record MachineFacts(long PhysicalBytes, int Threads, string Gpu, string CacheDrive, bool? CacheDriveSeekPenalty, bool Browser = false)
 {
 	/// <summary>Reads the facts of this machine; a missing OpenCL runtime counts as no GPU.</summary>
 	public static MachineFacts Read()
@@ -48,7 +50,7 @@ public sealed record MachineFacts(long PhysicalBytes, int Threads, string Gpu, s
 		{
 			// no OpenCL runtime: the CPU engine serves
 		}
-		string root = Path.GetPathRoot(FrameCache.Directory) ?? FrameCache.Directory;
-		return new MachineFacts(FrameMemory.PhysicalBytes(), Environment.ProcessorCount, gpu, root.TrimEnd('\\'), StorageDevice.IncursSeekPenalty(FrameCache.Directory));
+		return new MachineFacts(FrameMemory.PhysicalBytes(), Environment.ProcessorCount, gpu, StorageDevice.VolumeOf(FrameCache.Directory), StorageDevice.IncursSeekPenalty(FrameCache.Directory),
+			OperatingSystem.IsBrowser());
 	}
 }

@@ -307,7 +307,8 @@ internal static class Program
 
 	/// <summary>
 	/// The first start's choice of the preview quality (2026-10-31): the facts of this machine can be read, the cache
-	/// drive's kind among them, and the tier table holds at its edges on the facts of machines this one is not.
+	/// drive's kind among them, and the tier table holds at its edges on the facts of machines this one is not; a
+	/// browser page is a tier of its own, and the examples are reckoned against its memory.
 	/// </summary>
 	private static void CheckFirstStart()
 	{
@@ -333,6 +334,44 @@ internal static class Program
 			&& PreviewDefaults.QualityOf(PreviewTier.Middle) == new PreviewQuality(1, 1, FrameFormat.Index) && PreviewDefaults.DitherBitsOf(PreviewTier.Middle) == 0
 			&& PreviewDefaults.QualityOf(PreviewTier.High) == new PreviewQuality(1, 1, FrameFormat.Half) && PreviewDefaults.DitherBitsOf(PreviewTier.High) == 16,
 			"first start: Low is half resolution, every second frame, 8-bit; Middle the fixed defaults; High 16-bit dithered to 16 bits");
+		// a browser page (2026-11-14, the user's choice): its own tier whatever the machine, the page's memory deciding
+		Check(PreviewDefaults.TierOf(Machine(63.9, 20, true, false) with { Browser = true }) == PreviewTier.Browser
+			&& PreviewDefaults.TierOf(Machine(3.9, 2, false, null) with { Browser = true }) == PreviewTier.Browser
+			&& PreviewDefaults.QualityOf(PreviewTier.Browser) == new PreviewQuality(2, 1, FrameFormat.Index) && PreviewDefaults.DitherBitsOf(PreviewTier.Browser) == 0,
+			"first start: a browser page is its own tier whatever the machine: half resolution, every frame, 8-bit");
+		// and what that buys (his question the same day, whether every example then fits the page's 3 GB): each example's
+		// frames at that quality by the run's own arithmetic against the page's budget. All fit, since he shortened the
+		// two that did not, Examples 7 and 16 (10,000 steps each until then, 4.8 and 3.1 GB); an example added or
+		// changed later that does not is named here
+		if (FindRepoRoot() is not { } root)
+		{
+			Console.WriteLine("  skip the browser tier's examples: the repository was not found above the harness");
+			return;
+		}
+		long budget = FrameMemory.BrowserBudget(4L << 30, FrameMemory.Automatic);
+		PreviewQuality browser = PreviewDefaults.QualityOf(PreviewTier.Browser);
+		var over = new List<string>();
+		long largest = 0;
+		int examples = 0;
+		foreach (string file in Directory.GetFiles(Path.Combine(root, "Examples"), "*.wdproj").Order())
+		{
+			Project project = Project.Load(file);
+			if (project.Scene.Mode == SceneMode.Image)
+			{
+				// its canvas is the image's, which this arithmetic does not decode; none of the examples is one
+				continue;
+			}
+			examples++;
+			long bytes = RunSpec.Create(project, null, preferGpu: false).StoreBytesAt(browser);
+			if (bytes > budget)
+			{
+				over.Add("Example " + Path.GetFileName(file)[7..9] + " " + FrameMemory.Gigabytes(bytes));
+			}
+			largest = Math.Max(largest, bytes);
+		}
+		Check(examples >= 33 && over.Count == 0,
+			$"first start: at the browser tier's quality {examples - over.Count} of {examples} examples keep their frames in a page's {FrameMemory.Gigabytes(budget)}, the largest {largest:N0} bytes of {budget:N0}"
+			+ (over.Count == 0 ? "" : "; over it: " + string.Join(", ", over)));
 	}
 
 	/// <summary>
