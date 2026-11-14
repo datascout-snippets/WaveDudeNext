@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<!--
+SPDX-License-Identifier: GPL-3.0-or-later
+Copyright (C) 2026 Alexander Graef <alex@graef.cc>
+
+This file is part of WaveDude Next, a 2D wave simulator.
+
+Based on the work of
+  Jeroen Vleggaar (Huygens Optics), author of Wave Dude 2D, Copyright (C) 2026
+    <https://www.youtube.com/@HuygensOptics>, <https://www.huygensoptics.com>
+  0x23 (Diffraction Limited), author of WaveSimulator2D
+    <https://www.youtube.com/@DiffractionLimited>, <https://github.com/0x23/WaveSimulator2D>
+
+WaveDude Next is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. It is distributed WITHOUT ANY WARRANTY. See the LICENSE.md file or
+<https://www.gnu.org/licenses/>.
+-->
+<!-- The page of the browser head: one element that the application fills, and the script that starts the runtime.
+     It must be cross-origin isolated: served with Cross-Origin-Opener-Policy: same-origin and
+     Cross-Origin-Embedder-Policy: require-corp, or, where the server sends no such headers, through the service
+     worker the script installs for the purpose (isolation-worker.js), after which it loads the page again itself. -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+	<link rel="icon" type="image/png" href="favicon.png" />
+	<link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <title>WaveDude Next</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #2d2d30; }
+    #out { height: 100vh; width: 100vw; }
+  </style>
+</head>
+<body>
+  <div id="out"></div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

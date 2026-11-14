@@ -1,0 +1,173 @@
+<Project>
+
+  <!-- The SDK is imported here and at the end of the file, not named on the Project element: what Start runs is set
+       after the SDK's own run command, which nothing in the body of a project can follow (see the end). -->
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk.WebAssembly" />
+
+  <!-- The browser head (2026-11-12, the user's choice): the Avalonia head's application in a browser tab, as WebAssembly on
+       .NET's threaded runtime (WasmEnableThreads, an experiment of .NET 10: the library's runs, scratch frames, exports and
+       the frame store keep their threads), compiled ahead of time when published (interpreted code steps 14 to 50 times
+       slower than native, compiled 1.6 to 2.2 times; measured 2026-11-12). It references the WaveDudeNext.App executable
+       as it is (the user's choice of three layouts): the application class, the main view and everything under it are
+       that assembly's, this project adds the browser's entry point and the page. Needs the wasm-tools workload (Skia and
+       HarfBuzz are linked into the runtime), and the page must be served with Cross-Origin-Opener-Policy: same-origin
+       and Cross-Origin-Embedder-Policy: require-corp, without which the threaded runtime does not start. The SDK's
+       host, which Start runs, sends them; on a server that sends no headers of a site's choosing (GitHub Pages) the
+       page gets them through a service worker of its own (wwwroot\isolation-worker.js, installed by main.js,
+       2026-11-14). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-browser</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- the calls between the page's scripts and the program (JSImport, JSExport) are generated as unsafe code -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <WasmEnableThreads>true</WasmEnableThreads>
+    <!-- No hot reload agent (2026-11-14, the user's report: "WaveDude Next could not start: Could not load type of
+         field 'System.Net.Http.HttpClient:s_defaultProxy' … Could not load file or assembly 'System.Net.Primitives'"
+         after a Start from Visual Studio). A Debug build carries the SDK's agent
+         (Microsoft.DotNet.HotReload.WebAssembly.Browser, with a script of its own), which wakes when the page holds
+         Visual Studio's browser refresh script, injected by its Start, and then, as the runtime gets ready and before
+         Main, asks the server for changes through an HttpClient: the one use of that class in the whole head, and
+         where the start failed. On the threaded runtime that start-up of the agent's goes through or not from one
+         load to the next (it went through in every load of a probe with the script put in by hand); the page's
+         start must not hang on it. Without the agent an edit while the page runs needs a build and a reload. -->
+    <WasmEnableHotReload>false</WasmEnableHotReload>
+    <!-- The program's memory may grow to 4 GB, the most a 32-bit program addresses, where the runtime stops at 2 GB by
+         default (2026-11-13, the user's word that the head is to use its memory to the full). The lower 1 GB stays
+         the heap's, for everything the runtime and the libraries allocate; the 3 GB above are a run's frames' alone
+         (FrameArena.cs). Native\framearena.c says why the two are kept apart (the runtime cannot start a thread whose
+         own structure lies above 2 GB) and holds the heap to its part. -->
+    <EmccMaximumHeapSize>4294967296</EmccMaximumHeapSize>
+    <!-- Ahead-of-time compilation happens at publish alone: a build, Debug or Release, is interpreted, and the SDK's
+         host, which Start runs, serves the build (the user's report of 2026-11-14: Start in Release stuttered). So in
+         Release a build publishes too and Start serves the published, compiled site (the end of the file); Debug
+         stays the interpreted build, made in a minute. Compiling the build itself (RunAOTCompilationAfterBuild) was
+         tried that night and taken out: a build is not trimmed, so all 199 assemblies are compiled, 22 minutes from
+         nothing and 19 after a change to our own code, and the program it made stopped at its start. -->
+    <RunAOTCompilation Condition="'$(Configuration)' == 'Release'">true</RunAOTCompilation>
+    <!-- one published folder, however the publish is asked for: dotnet publish leaves the runtime's name out of the
+         path, a publish from a build puts it in -->
+    <PublishDir>bin\$(Configuration)\$(TargetFramework)\publish\</PublishDir>
+    <!-- The trimmer's analysis of our own three assemblies is not reported: a publish printed 22 such warnings
+         (IL2026 for every use of XmlSerializer, IL2057 for a type found by name in a markup extension, IL2060,
+         IL2075 and IL2091 for the reflection of the desktop head's text shaper, which this head does not install),
+         and a Release build publishes. None of the three is trimmed (TrimmerRootAssembly below), and what they
+         reach by reflection in the framework is what the published head is seen to run with: the settings, the
+         project files and the examples load there. -->
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    <!-- the App project is an executable that is not self-contained, a browser app always is: the SDK's check of the
+         pair is for two programs started side by side, which these are not -->
+    <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
+    <Authors>WaveDudeNext</Authors>
+    <Company>WaveDudeNext</Company>
+    <Copyright>Copyright (C) 2026 Alexander Gräf</Copyright>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <!-- the .editorconfig code-style rules are build warnings too: a file without the license header (IDE0073) -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- System.Threading.Lock does not exclude on .NET 10's threaded browser runtime (dotnet/runtime#129900: every
+         thread reports the same thread id); Native\thread-id.c, which says more, is linked in the faulty function's
+         place (2026-11-13) -->
+    <EmccExtraLDFlags>$(EmccExtraLDFlags) -Wl,--wrap=SystemNative_TryGetUInt32OSThreadId</EmccExtraLDFlags>
+    <!-- A Debug build did not start (2026-11-12 to 14: "Assertion at mono-threads-wasm.c:201"): emscripten puts the
+         stack first in memory when a link is not optimised and names no base for the data (its tools\link.py), so the
+         main thread's stack began at address 0, and the threaded runtime asserts that a thread's stack address is not
+         null. Naming the base, at emscripten's own default, keeps the data first and the stack behind it, as an
+         optimised link has them; it changes nothing in Release. -->
+    <EmccExtraLDFlags>$(EmccExtraLDFlags) -s GLOBAL_BASE=1024</EmccExtraLDFlags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <NativeFileReference Include="Native\thread-id.c" />
+    <NativeFileReference Include="Native\framearena.c" />
+  </ItemGroup>
+
+  <!-- For a memory that may exceed 2 GB the C library's WebGL layer hands over a view of the bytes a texture upload
+       reads, and reckons them without the row length the drawing library sets: the glyphs' uploads were refused.
+       Native\webgl-large-memory.js, which says more, gives those calls a view that is long enough (2026-11-13). The
+       build takes a script file among the content with a Kind as one to hand to the link under that name (pre-js: at
+       the start of the runtime's script) and as an input of the link step, so a change to it is linked in; named in
+       the link's flags alone it was not. Not a file of the page: it is not copied anywhere. -->
+  <ItemGroup>
+    <Content Include="Native\webgl-large-memory.js" Kind="pre-js" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Browser" Version="12.1.5" />
+  </ItemGroup>
+
+  <!-- A browser gives a page no system fonts, so this head carries one (the desktop heads take the platform's): Roboto,
+       the hinted static faces of its release 3.011 as they came (2026-11-14, the user's choice, to try: Inter, which
+       stood in until then, has no hinting and looked poor at the interface's small sizes). Three faces, what the
+       application asks for: Regular, Italic (the colour scheme picker's action rows; simulated, a slanted Regular
+       would lose its hinting) and Bold, which also answers for SemiBold, a weight Roboto does not have (Avalonia looks
+       upwards from 600 first; were Bold left out it would embolden Medium artificially). Program.cs registers the
+       folder as a font collection. Assets\Fonts\OFL.txt is the fonts' license, the SIL Open Font License 1.1, from
+       their repository (https://github.com/googlefonts/roboto-classic), the download carrying none. -->
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\Fonts\*.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WaveDudeNext.App\WaveDudeNext.App.csproj" />
+  </ItemGroup>
+
+  <!-- The App executable's desktop backends (Win32, X11, macOS, with their D-Bus library) come along with the reference.
+       A publish trims them away (see TrimmerRootAssembly below); a plain build trims nothing, so they are taken out of
+       its files here: nothing in a browser runs them, and one of the Win32 backend's Windows calls trips the
+       WebAssembly build's P/Invoke table (warning WASM0001). -->
+  <Target Name="DropDesktopBackends" AfterTargets="ResolveReferences">
+    <ItemGroup>
+      <DesktopBackend Include="@(ReferenceCopyLocalPaths)"
+                      Condition="$([System.String]::Copy('%(Filename)').StartsWith('Avalonia.Win32')) or $([System.String]::Copy('%(Filename)').StartsWith('Avalonia.X11')) or $([System.String]::Copy('%(Filename)').StartsWith('Avalonia.Native')) or $([System.String]::Copy('%(Filename)').StartsWith('Avalonia.FreeDesktop')) or '%(Filename)' == 'Avalonia.Desktop' or $([System.String]::Copy('%(Filename)').StartsWith('Tmds.DBus'))" />
+      <ReferenceCopyLocalPaths Remove="@(DesktopBackend)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- nothing of our three assemblies is trimmed away at publish: the project, settings and scheme files are read through
+       XmlSerializer, by reflection, and the application loads its string tables and themes by name at run time and binds
+       the tree's rows by reflection, none of which the trimmer can follow (a publish that trimmed the application stopped
+       at the language's string table, 2026-11-12). The desktop backends the application's desktop entry point names go
+       all the same: that one call sits behind OperatingSystem.IsBrowser() (Program.BuildAvaloniaApp of the App). -->
+  <ItemGroup>
+    <TrimmerRootAssembly Include="WaveDudeNext" />
+    <TrimmerRootAssembly Include="WaveDudeNext.UI" />
+    <TrimmerRootAssembly Include="WaveDudeNext.App" />
+  </ItemGroup>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk.WebAssembly" />
+
+  <!-- Start in Release serves the published site (2026-11-14, the user's requirement: Start, with or without
+       debugging, on this project, and the application as it is meant to run, at the root of the launch profile's
+       https address). The SDK's host is the server in both configurations; in Release it is given the published
+       folder's runtime configuration in the build's place. These follow the SDK's own run command, hence the
+       imports by name. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <_PublishedFolder>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(PublishDir)'))</_PublishedFolder>
+    <RunArguments>exec &quot;$([MSBuild]::NormalizePath($(WasmAppHostDir), 'WasmAppHost.dll'))&quot; --use-staticwebassets --runtime-config &quot;$(_PublishedFolder)$(AssemblyName).runtimeconfig.json&quot; $(_RunExtraArguments) $(WasmHostArguments)</RunArguments>
+    <RunWorkingDirectory>$(_PublishedFolder)</RunWorkingDirectory>
+  </PropertyGroup>
+
+  <!-- A Release build publishes, so what Start serves is what was just built: the compilation ahead of time is the
+       publish's, kept per assembly, so an unchanged program is found up to date and a changed one costs its own
+       assemblies, the link and the optimiser. Not inside a publish (dotnet publish says so itself, Visual Studio's
+       publish by DeployOnBuild), nor in the publish's own inner build. -->
+  <Target Name="PublishForStart" AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' and '$(_IsPublishing)' != 'true' and '$(DeployOnBuild)' != 'true' and '$(WasmBuildingForNestedPublish)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <CallTarget Targets="Publish" />
+  </Target>
+
+  <!-- The host serves a folder at the root of its address only through a manifest of the kind a build writes beside
+       its runtime configuration, which a publish does not: without one the published site lies under /wwwroot/.
+       This one names the published wwwroot as the one root. It holds this machine's path, a file for running the
+       publish here, not a part of the site. -->
+  <Target Name="WritePublishedSiteManifest" AfterTargets="Publish" Condition="'$(WasmBuildingForNestedPublish)' != 'true'">
+    <PropertyGroup>
+      <_PublishedSite>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(PublishDir)', 'wwwroot'))</_PublishedSite>
+      <_PublishedSiteJson>$(_PublishedSite.Replace('\', '\\'))</_PublishedSiteJson>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(PublishDir)$(AssemblyName).staticwebassets.runtime.json" Overwrite="true" WriteOnlyWhenDifferent="true"
+                      Lines="{&quot;ContentRoots&quot;:[&quot;$(_PublishedSiteJson)&quot;],&quot;Root&quot;:{&quot;Children&quot;:null,&quot;Asset&quot;:null,&quot;Patterns&quot;:[{&quot;ContentRootIndex&quot;:0,&quot;Pattern&quot;:&quot;**&quot;,&quot;Depth&quot;:0}]}}" />
+  </Target>
+
+</Project>

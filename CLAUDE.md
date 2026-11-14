@@ -1800,6 +1800,679 @@ drive letter, the mount point on Linux, else the root; `MachineFacts` uses it. T
 `library_check` proves them on fixed texts (meminfo lax and strict and old, the pages, a mount table with nested and
 escaped mount points, the rotational attribute); the live readings are proven when the machines boot, the macOS
 structure layout above all. Still to come for Linux: the H.264 sink absent without Media Foundation, the paths.
+**A WebAssembly port, route A** (2026-11-12, the user's choice of four: the Avalonia head's browser target on .NET's
+threaded runtime; the others were the same single-threaded, which needs a cooperative form of every threaded part of the
+library, a web UI over the library compiled to WebAssembly with a WebGPU engine in JavaScript, the contributed port's
+ADR 0003, and a server with a browser client, FauxFaux's `serv` branch, both in the PR folder): the CPU engine first, a
+WebGPU engine a later step of its own (a third `IWaveEngine`, the kernels in WGSL; its readback is asynchronous where
+`AwaitFrame` blocks, and .NET calls JavaScript from its main thread alone). The threads are what Microsoft calls an
+experiment in .NET 10 (`WasmEnableThreads`, a runtime pack of its own), and the page must be served with
+`Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`: without them the runtime
+stops at its start ("SharedArrayBuffer is not enabled on this page"), so GitHub Pages cannot serve it as it is.
+**Proven by a probe the same day** (two throwaway browser apps under `%TEMP%`, deleted: the library's Release DLL
+referenced and rooted against trimming, served by a Python script with the two headers, run in a headless Edge 157 with
+a profile of its own, the lines posted back to the script; the same source as a native console program for the
+comparison). The library runs unchanged: a `SimulationRun` to its end with probes, scratch frames bit for bit the run's,
+pause, resume and stop, the store's memory and file tiers (the file is the browser's in-memory file system), an export
+job (PNG sequence, AVI, OpenEXR), Example 16 read through `XmlSerializer` and painted; the managed main thread may
+block, being a worker (timed waits and `Task.Wait` return); Chrome 156 and Firefox 156 the same. Avalonia 12.1.5 runs on
+it (`Avalonia.Browser`, `StartBrowserAppAsync`, a single view and no window, its UI thread a worker): a view started a
+run with the app's default, the GPU asked for and the CPU engine given with the factory's note, showed the frames as
+they came and played them. **Measured** (native, then the browser compiled ahead of time, then interpreted; ten threads
+each): the CPU engine's step at 640 × 360 0.62 / 1.15 / 8.95 ms at 9-point and 1.30 / 2.85 / 32.8 at 4th order, at
+1920 × 1080 with a 32 px rim 3.60 / 5.80 / 60.4 and 8.19 / 15.2 / 231 (Firefox 5.58 and 13.6 compiled); a capture of
+both planes as halves 3 ms natively and 73 in the browser (`TensorPrimitives.ConvertToHalf`, not looked into: 42 ms a
+step at 1080p with a capture every second step), so an 8-bit run is the faster one there (a 640 × 360 run of 600 steps
+and 300 frames: 16-bit 0.88 / 3.3 / 23.6 s, 8-bit 1.0 / 1.9 / 29.7); the painter's four parts on Full HD 5.0–11.3 /
+7.6–25.8 / 29–279 ms, the glowing edges 8.3 / 21.6 / 295; Example 16's scratch frame 100 0.97 / 1.9 / 27.8 s. So a
+browser build is compiled ahead of time (`RunAOTCompilation`; six minutes for the bare probe, nine with Avalonia; the
+download 11.3 MB compressed for the Avalonia probe, 52.6 MB unpacked, 6.4 compressed interpreted). **What a browser build needs**: the `wasm-tools`
+workload, AOT or not, since Skia and HarfBuzz are linked into the runtime, which this machine's Visual Studio-managed
+SDK lacks (the probe built with a private copy of the SDK unpacked under `%TEMP%` and `dotnet workload install
+wasm-tools` in it, `DOTNET_ROOT` and `DOTNET_CLI_HOME` pointing there, the machine's installation untouched; deleted
+with the probe); a memory budget of its own (`FrameMemory` reports the heap's 2048 MB, half of it available, and after
+the 2 GB margin a budget of 0, so a run with the default budget would go to the file tier whole); folders
+(`Environment.GetFolderPath(LocalApplicationData)` is empty there: the settings, the cache, the user's schemes); a
+bundled font (a browser gives no system fonts; the probe had Inter); the windows as one view with overlays; the
+factory's note for a missing OpenCL names Linux's loader files. Open, the user's: what the browser version is for (the
+whole app or small scenes), where it is hosted, the font.
+**The browser head is `WaveDudeNext.Browser`** (2026-11-12, the user's choices: in the solution, and of three layouts
+the one where the browser project references the `WaveDudeNext.App` executable as it is, "if it works and doesn't
+incur major drawbacks"; the others were the App as a library with two thin executables, and the App's files compiled
+by link; the project's name is mine, his to change). It builds, publishes and starts; **he stopped the testing there to
+look himself, so what follows "not confirmed" is exactly that**. What the layout cost: (1) **the App's window is a
+view**: `MainView` (a `UserControl`: the former window's markup and partials, `MainView.axaml`, `.Commands`, `.Live`,
+`.Status`) is the application, its own data context with the models; `MainWindow` is the frame around it and keeps the
+title (bound to the view's document), the placement, the closing with the save question (`View.ConfirmDiscardAsync`,
+`SaveLayout`, `Shutdown`) and the zoom; the browser's single view is the same `MainView`. What needs the top level is
+put there when the view joins it (`OnAttachedToVisualTree`: the key bindings collected from the menus' HotKeys, F10, a
+window's activation); what needs a window asks `OwnerWindow`, and where there is none says so in the log: the browser
+has no dialogs yet (an error goes to the log and with it to the status bar and the Messages pane, the save question is
+not asked and the edits go, the memory warning cannot be put, see the locked page of 2026-11-13 below, About, the manual
+and Exit do nothing).
+`AvaloniaClipboard`, `AvaloniaExportDialogs` and `AvaloniaMemoryWarning` take a control and look its top level up at
+each use. A view not yet in a window does not reach the application's resources through its parents, as a window
+does: `Text(key)` asks the application then (found by the capture, the dock's titles read "PaneProject"). Proven for
+the desktop head: its window's client area pixel for pixel the same before and after on `tiny.wdproj` (PrintWindow;
+left out the title bar and frame, which show whether the window was active, and the Messages pane's log lines; the
+tree row's focus band differs between two runs of one build as well). **Not run: any harness against the desktop
+head after the split** (`KeyboardCheck` was meant, once: the key bindings moved to the top level). (2)
+`App.OnFrameworkInitializationCompleted` has two branches over a common `Start` (the desktop lifetime and
+`ISingleViewApplicationLifetime`), `SetupLogging` a browser branch: the lines go to the browser's console, no file;
+the browser's `Program` logs a failed start. (3) **Nothing of our three assemblies is trimmed** (`TrimmerRootAssembly`):
+a publish that trimmed the App stopped without a word at the language's string table, which is loaded by its address
+at run time. Kept whole, the App's desktop entry would keep the desktop backends in the download, so
+`Program.BuildAvaloniaApp` throws behind `OperatingSystem.IsBrowser()`, a test the trimmer knows the answer to: no
+Win32, X11 or macOS backend is left in a publish. A plain build trims nothing, so the browser project's
+`DropDesktopBackends` target takes those assemblies out of its files (one of Avalonia.Win32's P/Invokes tripped the
+WebAssembly build's table, warning WASM0001). `ValidateExecutableReferencesMatchSelfContained` is off (an executable
+referencing one). Left as it is: the App's `.exe`, `.deps.json` and `.runtimeconfig.json` are copied into the browser
+project's `bin`, unused. (4) **The font is Roboto, to try** (2026-11-14, the user's choice; Inter, `Avalonia.Fonts.Inter`,
+stood in until then and is gone: it has no hinting, his words "looks garbage on LCDs, at small sizes", and **Inter is
+not to be bundled again, in any head**). The hinted static faces of Roboto 3.011 as they came from his download
+(`fpgm`, `prep`, `cvt` and `gasp` tables; SIL Open Font License 1.1), three of them, what the application asks for:
+Regular, Italic and Bold, `AvaloniaResource`s of the browser project under `Assets/Fonts`, with `OFL.txt` from
+their repository (`googlefonts/roboto-classic`), the download carrying no license file. `Program.BuildAvaloniaApp`
+registers the folder as the collection `fonts:Roboto` (`EmbeddedFontCollection`, what `WithInterFont` did for Inter)
+and names `fonts:Roboto#Roboto` as the default family, which serves the controls too: Fluent's
+`ContentControlThemeFontFamily` is `fonts:Inter#Inter, $Default` (read at 12.1.5), its own font is not there, as on
+the desktop. **Roboto has no SemiBold**, which the application asks for in a dozen places (the pictures' titles, the
+forms' section headers, the timeline's bold numbers): Avalonia looks upwards from 600 first (`FontCollectionBase`,
+read at the tag), so Bold answers; with Bold left out it would embolden Medium artificially, and a missing Italic is
+a slanted Regular. **The hinting needs nothing set**: an unspecified hinting mode is full hinting by the font's own
+instructions and the baseline snapped (`GlyphRunImpl.CreateFont`), what `TextRendering.Apply` asks for on the
+desktop's windows. Proven by the Debug build (Visual Studio's MSBuild, 0 warnings; the Browser assembly 1.5 MB with
+the three faces) and one capture before and one after in a headless Edge on a port of its own, the user's Start
+session serving the Release publish meanwhile: Roboto throughout, the console as before. **What the captures say of
+the rendering, enlarged**: the lines sat on whole pixel rows with Inter already (the x-height and the baseline one
+row each in both; the renderer's font engine in a browser hints an unhinted face by itself), and the stems are
+spread over two columns with coloured fringes in both, since this head places glyphs on quarter pixels (the
+desktop's `WholePixelShaper` is installed by the desktop's configuration alone) and antialiases by subpixels; so
+the font alone changes the letters' shapes more than their sharpness. His to judge on his screen; not looked at
+further ("Looks better", his word after it). **The browser head takes the system's Segoe UI where the user allows
+it** (2026-11-14, the user's design: View > "Use the system's font", in the browser head alone; the mark cleared
+without the browser's permission and set with it; choosing it while cleared asks for the permission). A page gets
+the installed fonts' bytes, which the head needs since it draws its text itself, through the Local Font Access API
+alone (`window.queryLocalFonts`: Chromium's browsers on a desktop, neither Firefox nor Safari, Window only) and with
+a permission the browser asks for once a site, after a click or key press; once given, Chromium answers without one
+(its `font_access_manager.cc`: "Transient User Activation only required before showing permission prompt"; the
+specification wants one at every call). Segoe UI cannot be bundled (Microsoft's license); read from the user's own
+machine it can. **The pieces**: `wwwroot/system-font.js` asks for the four faces the application uses by their
+PostScript names (`SegoeUI`, `SegoeUI-Italic`, `SegoeUI-Semibold`, `SegoeUI-Bold`, read from the files of Windows
+10) and, loaded by `main.js`, reads them as the page loads where the permission is there already;
+`WaveDudeNext.Browser/SystemFont.cs` copies them into the program's memory, makes them a font collection of its own
+(`fonts:System`, a `FontCollectionBase` subclass and `TryAddGlyphTypeface(Stream)`) and names the family in the
+application's resources under `ContentControlThemeFontFamily`, the dynamic resource from which the Fluent theme's
+root and popups, and so every control, take their font family: **the switch is live**, no reload. It implements
+`WaveDudeNext.App/Theming/ISystemFont`, the hook `App.SystemFont` a head sets (null on the desktop, the entry then
+hidden); the entry is a one-way mark and `AppCommands.ToggleSystemFont`, as the Simulation menu's toggles; the string
+is `MenuViewSystemFont` in the four tables (mnemonics U, Y, U, G, free in each View menu). **My first answer had the
+live switch as not possible** ("why wouldn't we be able to", his word, and he was right): the one fixed thing is
+`FontManager.DefaultFontFamily`, read once and without a setter, and four lines of the App's own drawing code asked
+for it by name (`FontFamily.Default`, `Typeface.Default`: the timeline's numbers, the names beside the handles, the
+graph boxes); they take the family their control inherits now (`TextElement.GetFontFamily`, as the dock's drop
+adorner did) and draw again at its change, which on the desktop resolves to the same platform font: the desktop
+head's window on `tiny_probes.wdproj` before and after, 0 of 1,848,000 pixels different. **Filled in by me, his to
+change**: choosing the entry while it is set goes back to the carried font for the session (the next load, the
+permission still there, starts in Segoe UI again); the mark says "in use", so on a machine that has no Segoe UI it
+stays cleared after a grant, with a line saying so; where the browser has no such API the entry is not shown.
+**Found on the way**: Chromium answers a refusal with an empty list and no error (the specification has a
+NotAllowedError), so the first version said "the system has no Segoe UI" to a refused permission; the script now
+tells the two apart by the permission's state. **Proven** in a headless Edge 157 on the Debug build: the entry in
+the View menu; a click without the permission (a headless browser cannot show the question and refuses) leaves
+Roboto and says "The browser did not hand over the system's fonts …" in the status bar; with the permission, one
+click and the whole interface is in Segoe UI, 4 faces, the Semibold real, the mark set, the graph box, a source's
+label and the timeline's numbers with it (enlarged crops); a second click and it is Roboto again; a reload starts
+in Segoe UI with the mark set. On the desktop head the hidden entry takes no key (the View menu walked by Down:
+Panes, Theme, UI zoom, Language, Preview resolution, frames, samples), so the harnesses' counts stand. **Not seen**:
+the browser's question answered by a person; the Release build; another browser. **Harness**: a permission is
+given to a headless page by `Browser.grantPermissions` with `localFonts` on the browser's own debugging socket
+(`/json/version`), and is taken back the moment that socket closes; clicks sent through the debugging port count as
+the user's gesture. **The entry has no icon; an "Aa" drawing is kept** (the same evening: he asked for an icon,
+"usually 'Aa' is used for that", and took it off the entry again once he saw why there had been none: an entry
+with a mark has its check glyph in the icon's column, in both heads' menu templates). `IconSystemFont` in the
+shared `Icons.xaml`, a capital A and a single-storey a on one baseline, stays as an asset, on no entry. What I had
+built for the two together, a frame in the accent colour around the icon in place of the check glyph (Visual
+Studio's way, in the App's menu item theme), he found "very meh": it is gone, the theme as it was. **An entry with
+a mark gets no icon.** **The browser head keeps the user settings in the browser's local
+storage** (the same evening, the user's choice; until then a file in the runtime's memory, gone at a reload, so
+every start was a first start). **A key for each setting, not one text** (his word once he saw the first form,
+the settings' XML whole under one key: "counter-intuitive", "I would have at least thought we'd have a
+WaveDudeNext.Settings.PreviewResolution = 2 key/value pair"; the pane layout as JSON, his choice of two, the other
+being the file's XML fragment): `WaveDudeNext.Settings.<Name>` with the text the file's attribute would hold, and,
+as in the file, only where the setting differs from its default, so one back at its default is a key removed;
+`Layout` is one key holding the dock tree as JSON (`WaveDudeNext.UI/Docking/DockLayoutJson.cs`: each node an
+object with a `kind`, split, group or document, written and read by hand, a trimmed program having no reflection
+for JSON), a tree of any depth that is replaced as a whole; `RecentFiles` and `ExportHints` are JSON lists;
+`Version` (1) is always there once anything was saved and tells a first start from settings all at their
+defaults. **Not stored there: the main window's place, size and state** (his word: they "have no meaning in a
+browser"). The scalar settings are found by reflection over the settings' XML attributes, so a new one is stored
+without a line; a list or tree added later is named in a warning until the store knows its form. What is read is
+taken setting by setting: a text that is not its setting's (edited in the developer tools) is a warning and that
+setting's default. `WaveDudeNext.UI/ISettingsStore.cs`: `ISettingsStore` (the place in words, the settings loaded
+or null for a first start, the settings saved; the object, not a text, since the forms differ) and
+`SettingsStore.Current`, a class of its own because `Settings` reads at its first use, which setting a member of
+it would be; the default is the XML file at `Settings.FilePath`, written as before (the desktop head loaded and
+saved the user's file through it: 2036 bytes, byte for byte the same), an unreadable one quoted in the log
+through `UnreadableFileException`'s new constructor for a text read already. The browser's store is
+`WaveDudeNext.Browser/LocalStorageSettings.cs` with `wwwroot/settings-storage.js`, set by `Main` before anything
+asks for a setting: local storage is the page's own thread's, so all of it is read once, as the store is made on
+the scripts' thread, and a save is posted there and not waited for (no thread waits for the page; a refused save
+is a warning in the log, not the caller's error); the script writes what changed, removes every other key of
+ours, and the one key of the first form with them.
+**A head without a window saves as things change** (`MainView.SaveSettingsSoon`, for a single-view lifetime
+alone): a page is left without the application hearing of it in time, so what the window saves as it closes (the
+theme, the language, the pictures' orientation, the dock layout) is saved at the UI thread's next idle moment
+after a setting or the dock arrangement changes, several changes as one; **and a splitter between the panes when
+its drag has finished** (the user's word the same evening, after my first version had left a moved splitter to
+the next thing that changed: "that makes little sense"): `DockHost.SplitterMoved`, raised at the splitter's
+`DragCompleted`, the sizes read at the idle moment after the layout has run. Seen in the headless Edge: a drag of
+120 px held for a second and a half saves nothing, the release is followed by "User settings saved" with the left
+column at 463 px (343 before), and a reload comes up so. So a browser's first visit is its one first start (the tier, its
+line), and later visits come up as they were left. Proven in the headless Edge: a first start stores
+`PreviewResolution` = 2 and `Version` = 1; Theme > Light and a splitter's drag add `Theme` = Light and `Layout`
+with the left column at 463; after a reload no first-start line, the light theme and that column. **One of four
+such reloads did not reach "ready" in two minutes**, with nothing of it kept (the probe threw before it printed
+its lines); the same steps came up three times after, with every line read. Not understood, and not followed: a
+start that hung without a word is on record from that morning's long runs. Not seen: a browser that gives the
+page no local storage (the script then reads nothing and every start is a first start), two tabs (the last to
+write wins, as two instances of a head). The user's colour schemes are still a folder in memory there. **A crash
+leaves a notice over the page** (the same evening, his question whether the browser head had a handler for
+crashes and uncaught errors, and his word on what I recommended): "WaveDude Next has stopped", two sentences,
+the error's words and a button that loads the page again, plain elements made by `main.js`
+(`globalThis.waveDudeStopped`), since what has stopped is the application's own interface; the first call's
+stays. A page is not a process: until then a dead program left the page standing, no longer answering, its
+Fatal line in a console no visitor opens. **Fed from** the two handlers of the App that an error nothing handled
+reaches, the UI thread's dispatcher and `AppDomain.UnhandledException` (`App.Stopped`, a hook the browser head
+sets and a desktop leaves empty; an unobserved task's error is a Fatal line as before and no notice, the program
+goes on), and from the runtime's own end, which no handler of the program's hears: `runtime.Module.onAbort` and
+`onExit`, each chained in front of what the runtime had there. **An error of the page's own scripts that nothing
+caught, and a promise's rejection nothing took, are not the notice** (my call, said to him: such an error need
+not end the program): they go into the application's log as an error (`Program.PageError`, a line in the status
+bar and the Messages pane), and only where the program can no longer take that report does the notice say so;
+errors of scripts from elsewhere are left alone. **`Program.Crash(kind)` is the harness's hook** (`ui`, `thread`,
+`fail`), a JS export, since nothing else brings such a crash about on purpose. Proven in the headless Edge on the
+Debug build: a thrown script error and a rejected promise each give "An error in the page's scripts: …" in the
+log and no notice; `ui` gives the Fatal "Dispatcher.UnhandledException" and the notice with the exception's
+words; `thread` gives "AppDomain.UnhandledException", the runtime's "program exited (with status: 1)" and the
+notice; `fail` gives the notice from the abort hook, "The runtime was aborted: native code called abort()". Not
+seen: the compiled build, and the crash of that morning's long runs, which this would now show. **No hot reload
+agent in the browser head** (`WasmEnableHotReload` false; the same evening, the user's report after a Start of
+the Debug build from Visual Studio: "WaveDude Next could not start: Could not load type of field
+'System.Net.Http.HttpClient:s_defaultProxy' (0) due to: Could not load file or assembly 'System.Net.Primitives'").
+A Debug build carried the SDK's agent (`Microsoft.DotNet.HotReload.WebAssembly.Browser`, the one assembly of the
+head that references `System.Net.Http`, found by listing every assembly's references), whose page script wakes
+when the page holds Visual Studio's browser refresh script (`script[src*='aspnetcore-browser-refresh']`, which
+its Start injects into the page: fetched from the user's running host as a browser asks, the page had it; the
+headers were the same as a plain host's) and then, as the runtime gets ready and before `Main`, calls the agent's
+`InitializeAsync`, which asks the server for changes through an `HttpClient`. A probe that puts that script
+element into the page itself made the agent start in every one of five loads, without the error: so it fails
+from one load to the next, on the threaded runtime, why is not known, and the fix is that the agent is not
+there: after it, with the script in the page, "hot reload agent not initialised" and the start as ever. **His
+error itself was not reproduced.** An edit while the page runs needs a build and a reload now; his to turn back
+with the one property. **Open, found with it: about one load in five never starts, without a word** (the same
+probe, the page loaded again every twelve seconds in one headless tab: loads 9 and 10 of 10 before the change,
+load 3 of 3 after it, one of four that afternoon): the runtime prints its own line about an option and then
+nothing, not even `Main`'s first line, the page does not say "could not start", and the load after it gets
+nothing either. Not the agent (off in the last of these), and before `Main`'s first await; a start that hung
+without a word was seen that morning on an earlier build. Not followed. **The solution needs the `wasm-tools` workload now**: with it `dotnet build
+WaveDudeNext.sln` is 0 warnings (built so with the private SDK copy, as on 2026-11-12 this machine's own SDK still
+lacks it); without it the SDK builds with one warning, that Skia and HarfBuzz are not linked in, and that build of the
+head does not run. **Seen in a headless Edge** (the Release publish served with the two headers, driven through the
+browser's debugging port with clicks, keys and screenshots; the console is the log): "ready" 5 to 7 s after the page
+loads, the first start's tier Low (2 GB, no OpenCL), the main view with the menu bar, the tree, the properties, both
+pictures, the timeline and the status bar, the File menu with its icons and the Examples submenu's list opened by
+clicks, the default project's scratch frame 0 on the CPU engine (176 ms of stepping at 1920 × 1080 compiled ahead of
+time, 258 interpreted). **Not confirmed**: an example opened and a run made in the head (the driven clicks and keys
+left the default project as it was, cause not looked into: the driver or the app). **Measured**: the publish compiled
+ahead of time 65.3 MB in 87 files, 21.2 MB gzip-compressed (`dotnet.native.wasm` 44 MB; the SDK's own brotli figure
+was incomplete in that incremental publish), seven and a half minutes of compiling; interpreted 29 MB. **Found on the
+way**: a Debug build does not start, neither from a plain file server (an assertion in the runtime's thread code) nor
+from the SDK's development server (`dotnet run`, which sends the two headers itself; an `AggregateException` at the
+start, not looked into), so the head runs from a Release publish for now; the default project's run froze the page (with
+a memory budget of 0 every frame was to go to the store's file; put down that day, unmeasured, to that file being served
+through the page's main thread, which was wrong: the files work, and what ended the page was the cache folder's disk
+check, see the locked page of 2026-11-13 below); a stopped publish leaves build processes of the SDK holding
+`obj\...\dotnet.native.wasm`, and the next publish fails at `wasm-opt` or with "file in use" until they are ended.
+**Not there yet in the browser, each a step with the user's say**: the dialogs as overlays; files (a picked file is a
+stream there, without a path: Open, Save, the exports, the scene image, the recent list); the settings (a file in
+memory, gone at a reload, so every start is a first start; in the browser's local storage since 2026-11-14); the
+memory budget; the UI zoom; the font (Roboto since 2026-11-14, to try); the Debug build.
+**The user's first look at it, the same evening** ("let's concentrate on the GUI, it needs a lot of work"; the example
+runs are of no use to him while the engine there is the CPU's). (1) **"Slow as molasses", and frozen after leaving
+the browser window and coming back**: one cause. With threads Avalonia 12.1.5 runs its UI thread as a thread of its
+own on a `ManagedDispatcherImpl`, whose loop sleeps on an event until one of its timers is due or a job is posted
+(`_wakeup.WaitOne()`), and the browser's input is put into a queue for it (`BrowserInputHandler.ScheduleInput` →
+`RawEventGrouper`) without that event being set (the source read at the tag as far as the loop and the handler; the
+queue's own file was not found, the measurement stands for it): input is taken at the thread's next wake-up from
+something else, and never when nothing else wakes it. Measured in a headless Edge by small captures after a posted
+pointer move or click (one capture takes 55 to 75 ms): a hover showed after 400 to 1008 ms and the File menu after
+544, with the page at 0.06 of a core while the pointer moved all the time, so waiting, not working; after the fix a
+hover at the first capture (62 to 80 ms) and the menu at 204. The fix is the browser project's: `main.js` listens to
+every input event on the window and, after the event's own handlers have run (`setTimeout` 0, so Avalonia has queued
+it), calls the exported `Program.Wake`, which posts an empty job at Input priority; registered only once `Main` has
+returned, since `Dispatcher.UIThread` asked for before Avalonia has set it up is made on the asking thread and kept.
+A fault of Avalonia's worth reporting upstream (his to write). (2) **The names beside the handles looked like Courier**:
+`WithInterFont` adds the font and the Fluent theme names it for controls, but text the application draws itself asks
+for `FontFamily.Default` (the handle labels, the timeline's numbers, the graph boxes), which was the renderer's
+built-in monospaced face; the browser's `Program` now sets `FontManagerOptions.DefaultFamilyName` to the bundled font
+(seen on the timeline's numbers, enlarged, before and after). The painters that draw with Skia directly
+(`SKTypeface.Default`: the export decorations, `ProbeGraphSkia`) are not covered. (3) **"Read permission is not
+granted for clipboard"** in the status bar: Avalonia throws `UnauthorizedAccessException` when the browser refuses a
+read (no permission yet, or the page not focused), `AvaloniaClipboard.ReadAsync` did not catch it and the unobserved
+task reached the log as Fatal; caught now as a refusal, at Debug, the next question reading again. Paste from outside
+the page is not right there yet: a browser has no change count, so a read that landed is kept (the class's comment
+says otherwise), and the right moment to read is the paste itself, a step of its own. (4) **The console log is
+styled after his `logging.js`** (`C:\Users\GraeAlex\Downloads\logging.js`, from another project of his):
+`BrowserConsoleTarget` in the browser project posts each line to the thread the page's scripts are called from, where
+`waveDudeLog` in `main.js` writes it through the console's method of its level with the level as a badge, Trace grey,
+Debug blue, Fatal a red badge; `App.SetupLogging` takes that target. **Found with it: in the build compiled ahead of
+time the loggers have no names** (`LogManager.GetCurrentClassLogger()` reads the stack, which has no methods there; the
+interpreted build names them), so the console and the Messages pane show no source; naming each logger by its type
+would mend it, in every class, undecided; done on 2026-11-14 on his report that every source but the WebGPU
+engine's, the one named explicitly, was empty: see Log decisions at Debug. (5) **Half of the page's heap is the frames' budget** (his remark that some
+memory can be given safely; `FrameMemory.BrowserBudget`, `BrowserShare` 0.5, 1 GB of the 2 GB heap, the percentage
+bounding it; the share is mine, his to change; `library_check` proves the arithmetic). Not confirmed by me in the
+head: a click on a toolbar button or a menu entry through the debugging port did nothing at first; since the
+wake-up it clicks (a source and a probe added from the toolbar), so the earlier failures were the unwoken thread's.
+(6) **The console's warnings "Blocking the thread with JS interop is dangerous", ManagedThreadId 10** (65 in a few
+minutes, in bursts when the pictures or their texts change): the .NET runtime warns when a thread that can call the
+page's scripts makes a blocking wait, and thread 10 is Avalonia's render thread, a script-bound worker. What waits,
+read from the stack of one warning (the published file has no names: the same build linked again with
+`-p:WasmEmitSymbolMap=true` gives `dotnet.native.js.symbols`, function number to name, and the same
+`dotnet.native.wasm` byte for byte): the compositor draws a glyph run, `GlyphRunImpl.GetTextBlob`'s cache disposes
+an `SKTextBlob`, and SkiaSharp takes the write lock of its table of native objects
+(`HandleDictionary.DeregisterHandle`, a `ReaderWriterLockSlim`) while another thread makes or frees a Skia object.
+Inside SkiaSharp and Avalonia, short, and needing nothing from the waiting thread's scripts; my first guess, the
+presenter's bitmap lock, was wrong. `main.js` now starts the runtime with `jsThreadBlockingMode:
+'DangerousAllowBlockingWait'` (the runtime's own setting, not in its typings): no warning, and no stack gathered for
+each wait; whether they are gone in his browser is his to see, my headless runs never showed them. Expanding such a
+warning froze his developer tools (a stack of unnamed WebAssembly functions). (7) **Tooltips took the pointer in the
+browser** ("stealing focus", everywhere): there a tooltip is an overlay of the one top level, not a popup window, so
+`ToolTipPassThrough`, which makes the popup window transparent to the pointer, did nothing; it now takes the
+tooltip's `OverlayPopupHost` out of hit testing. Proven by two captures in the Examples submenu, before and after:
+the pointer on the first entry until its tooltip shows, then one move onto the second entry, which lies under that
+tooltip: before, the first entry kept the highlight and its tooltip; after, the second entry has both. (8) **The
+graph boxes' font**: he saw it monospaced still; in his own screenshot of the build with the default family set the
+graph's text and the handle labels are the same bundled face (enlarged from his picture), so nothing was changed.
+**The browser's GPU engine is WebGPU** (2026-11-13, the user's choice with the recommended options, after "WebGL or
+WebCL": WebCL is an inactive Khronos standard no browser ships; WebGL has no compute shaders, so every kernel would be
+a render pass into float textures, though it runs nearly everywhere; WebGPU has compute shaders, works in workers and
+maps the nine OpenCL kernels one to one, but on Linux only on newer Intel and on NVIDIA under Wayland in Chrome, and
+in Firefox's Nightly). Recommended and taken: the engine in the browser project with a hook in `WaveEngineFactory`,
+the CPU engine as the fallback, proven against the CPU engine in the browser. **First step, a throwaway page**
+(`%TEMP%\WaveDudeNext\webgpu-probe`, kept until the engine exists: its `webgpu.js` is the kernel's first form):
+`wave_step` in WGSL line for line (padded layout, 9-point or 4th-order stencil, leapfrog in place, the two intensity
+stages, 32 × 8 work groups; c² and the damping as plain floats per cell, not yet the compact index maps), the
+continuous object sources in a pass of their own, one command buffer a step; the CPU engine's own per-cell data
+handed over as it is (its private fields read by reflection), so both step the same numbers; called from the
+runtime's main thread through `JSImport`, the arrays as memory views. In a headless Edge 157 on the RTX 2080
+(adapter "nvidia turing", the default limits: 128 MiB a storage binding, 256 invocations a work group): after 300
+steps at 640 × 360 with two sources the field differs from the CPU engine's by 1.9e-5 of its maximum at 9-point and
+1.4e-5 at 4th order with 3 sub-steps (the OpenCL check allows 1e-3), the intensity by 3e-6 and 1e-6; a tenth of the
+cells bit for bit at 9-point, so not the OpenCL engine's bit identity (the card's `sin` is single precision, the
+CPU's double). A step, the card's work awaited: 0.26 ms at 1920 × 1080 at 9-point and 0.52 at 4th order (OpenCL on
+this card 0.21 and 0.38 with its compact maps, the CPU engine in the browser 5.8 and 15.2), 0.17 to 0.21 at
+640 × 360, where the cost of a command buffer a step is the floor; a full-HD field read back in 7 to 11 ms through a
+staging buffer made for each read. **The engine exists** (the same day; the user's choice of three for the host side:
+one helper both GPU engines use). `Engine/GpuTables` in the library, public and pure, is what a scene, the options, the
+emitters and the probes come to as a card's tables (the compact scene maps with the sub-steps, the frequency table, the
+image sources, the emitters inside the canvas and their tables, the intensity's retention, the probes' pixel lists);
+`GpuWaveSimulator` builds from it. `WaveEngineFactory.PlatformGpu`, a delegate a head sets once, is tried in OpenCL's
+place when the GPU is asked for (null, the default, leaves OpenCL; `library_check` proves given, refused and thrown),
+and the library's internals are visible to the browser project for the one thing an engine sets on a snapshot
+(`HasIntensity`). `WaveDudeNext.Browser/WebGpuWaveSimulator` is the `IWaveEngine`, set by the head's `Main`;
+`wwwroot/webgpu-engine.js` holds the nine kernels in WGSL and their buffers: the compact maps as the OpenCL engine has
+them (a byte and a 16-bit index read out of 32-bit words, WGSL having no smaller storage type), captures converted on
+the card to halves or palette indices, the probes' history and profiles there, what is read back written straight into
+the program's memory. Every call to the card is posted to the thread the page's scripts are called from (the context
+`Main` hands over) and waited for by the driving thread, 0.33 to 0.6 ms a hand-over, so steps and probe samplings are
+only noted and go out 64 at a time or with whatever needs their result. **The card's "done" is not waited for**:
+`onSubmittedWorkDone` takes about 3 ms to arrive in Edge whatever the work (a step sent and waited for singly 3.3 ms
+against 0.3), so a capture goes out with the steps before it in one call, its read is awaited in `AwaitFrame` (the
+writer's thread in a run), and the queue is waited for only after 256 steps with nothing awaited; driven as a run drives
+it (three snapshots, a writer thread), a 16-bit full-HD capture every second step fell from 3.9 to 1.7 ms a step, an
+8-bit one at half resolution from 2.5 to 0.46. **Proven by a check page** (`%TEMP%\WaveDudeNext\webgpu-check`: the
+engine's source compiled by link against the library's Release DLL, the script copied beside the page, interpreted, in a
+headless Edge 157 on the RTX 2080) through the engine contract against the CPU engine, as `library_check` compares the
+OpenCL one: three scenes (reflective with a damping band, open with a rim, an image scene of two indices with two image
+sources) at both stencils, with a continuous, a Gaussian, a smoothed-square with a detachment and a randomised emitter
+and five probes, 126 checks: after 200 steps the field within 1e-6 (the check allows 1e-3 of the maximum), the intensity
+within 2e-8, the point probes' series and the line profiles, captures as halves at full size and at half (1 to 2 % of
+the halves differ, by one step of a half) and as palette indices at divisors 1 and 3 (in 3 planes of 24 one byte of 3072
+differs, by 1: not the OpenCL engine's bit identity), a scene replaced, a reset. A step at 1920 × 1080 with a 32 px rim:
+0.26 ms at 9-point, 0.53 at 4th order (OpenCL 0.21 and 0.38, the CPU engine in the browser 5.8 and 15.2). With the
+browser's GPU switched off (`--disable-gpu`) the engine refuses with "WebGPU found no graphics adapter", which the
+factory turns into its note and the CPU engine. **`System.Threading.Lock` does not exclude on .NET 10's threaded browser
+runtime** (found on the way: one engine in ten at full HD failed with an `AggregateException` of "concurrent operations
+not supported" in `GpuTables.Scene`, whose gathering of distinct values merges its threads' sets under such a lock, code
+the OpenCL engine has run since 2026-11-03). dotnet/runtime#129900, open, milestone .NET 12: the runtime's native
+`SystemNative_TryGetUInt32OSThreadId` answers 1 on every thread there, so the lock takes every thread for its owner.
+Measured on runtime 10.0.15: eight threads adding to a counter under the lock threw `SynchronizationLockException` or
+hung; under a monitor 2,400,000 of 2,400,000. The runtime's own timer queue uses that lock, which is the fatal error the
+issue reports, so the fault was the whole head's, not the engine's. `WaveDudeNext.Browser/Native/thread-id.c`, linked in
+the function's place (`EmccExtraLDFlags` with `-Wl,--wrap`, the way out the issue names), answers the thread's pthread
+handle: the same test counts 2,400,000 under the lock, on threads of its own and on the pool's. The library's three uses
+of the lock (`GpuTables`, `PartPainter`, `LogicGateDesign`) stay as they are. With the machine's own SDK, which lacks
+the workload, the project builds with its one warning as before (the file named in it). **The scene's tables took 2 s an
+engine in the browser** (found when the head's run waited 2.5 s for its engine): `GpuTables.Scene` asked a hash set and
+a binary search about every cell; now a cell equal to the one before it in its row is not looked up, the tables the same
+(`library_check`'s CPU = GPU checks, 785 ok). On the check page 1.9–2.1 → 0.43–0.49 s for the 1984 × 1144 grid; in the
+published head the first engine 2.3–2.9 → 0.87 s, a run's start to its engine 2.5 → 0.23 s, and the default project's
+run with one source (2500 steps, 4th order with 3 sub-steps, 625 frames of 960 × 540 in 8-bit, both planes) 4.6 → 2.0 s,
+1.8 of it stepping and captures; frame 217 from scratch 435 steps in 472 ms. Not measured on the desktop (a scene
+replacement, which includes the tables, was 55 ms for Example 16). **Seen in the published head** (compiled ahead of
+time, 88 files, 65.5 MB, 21.9 MB gzip, 554 s to publish; a headless Edge driven through the debugging port): the
+device's facts and the kernels' line in the log, the scratch frames and a run on "GPU: nvidia turing (WebGPU)", the
+pictures right. **Not done, each the user's**: the first start's tier still calls a browser a machine without a GPU
+(`MachineFacts` asks OpenCL; its line says "no OpenCL GPU"; since 2026-11-14 a page is a tier of its own with a line
+of its own, see First start); the card's own errors and a lost device reach the browser's
+console alone; F5 sent through the debugging port started the run and reloaded the page (the browser's key; whether a
+real key press does, not looked at); other browsers and cards (only Edge 157 on this card ran it); the check page as a
+harness of the repository. **Harness notes**: `wasm-run\run.ps1` takes `-BrowserArgs`; a publish piped into
+`Select-Object -First` is reported as exit -1 though it runs to its end (the pipeline is cut at the count); a run right
+after another on the same port once failed to load the page's files, the next was fine.
+**A run that did not fit the memory locked the page** (the same day, the user's report: at the line of the memory
+warning's stand-in, "this head cannot ask yet: the run goes on as it is", nothing answered any more). Not the store's
+file, as put down unmeasured on 2026-11-12 and assumed again at first: measured on the check page, the browser's files
+work from a worker thread (a 3 GB file made, sized in 8 ms, 4 MB written and read in 1 to 2 ms each), and the page's own
+main thread went on answering (1 ms to `Runtime.evaluate` through the debugging port) while the application was dead.
+The cause: `FrameCache.CheckSpace` asked the drive of the cache folder's root, and in a browser the local application
+data folder has no path, so the folder is the relative `WaveDudeNext/cache`, its root "" and `new DriveInfo("")` an
+`ArgumentException`, which no start of a run expects (they catch `RunSpecException`, `IOException`,
+`UnauthorizedAccessException` and `NotSupportedException`). It left the command as an unhandled error of the UI thread's
+dispatcher, which in a browser ends that thread and leaves the page standing, without a word in the log, the App having
+had no handler for it. Two fixes: `CheckSpace` asks by the folder's full path (`library_check` proves a relative folder,
+786 ok), and the App logs `Dispatcher.UIThread.UnhandledException` at Fatal before the error goes on, as the WPF head's
+`DispatcherUnhandledException` does (not handled: it crashes, so the issue is visible; in a browser that is a dead page
+with the line in the console). Measured in the head, interpreted, on the default project at full resolution (2.4 GB of
+frames against the budget of 1 GB): before, with the handler in, the Fatal line with the `ArgumentException` right after
+the stand-in's line and nothing after it; after, "The run could not start: The run needs 1.4 GB of frame cache on /, but
+only 0 GB is free" in the status bar, the application alive, a scrub drawn. **As it stands a browser run that does not
+fit is refused**: what answered there is the runtime's in-memory stand-in for a file system (emscripten's, under "/"),
+which reports 0 GB free, and the rule a full cache drive has always had refuses the run in words; the stand-in's line
+names the View menu's levers now instead of saying the run goes on. **That stand-in is not storage, and I offered it to
+the user as "the browser's files" among four options, none of them the right one** (his word the same morning: "of
+course we can't just rummage around the user's file system in browser session, there's APIs for storage managed by the
+browser itself"): a browser's disk for the store is the Origin Private File System with the quota API. One fact check, a
+throwaway page in the headless Edge 157 (deleted): `navigator.storage.estimate()` gave that fresh profile a quota of 10
+GB (a real profile's is the browser's to say); the page's main thread has no synchronous access
+(`createSyncAccessHandle` is a dedicated worker's alone); a worker's handle takes views of a shared buffer, which the
+program's memory is on the threaded runtime, so frames go to the file and back without a copy of ours: 1 GB written in 8
+MB pieces at 2.9 GB/s and read back at 2.75, scattered 4 MB reads 1.1 ms and writes 1.4 ms each, sizing to 1 GB 0.8 ms,
+removal 120 ms, a `flush()` 4.4 s (a cache needs none); a second handle on an open file is refused, and the mode that
+allows several is Chromium's alone, so one worker owns a file's handle. The files outlive the page, so leftovers are to
+be swept at a start as on a desktop. **Built on his word** ("1-3"). The library: `IFrameStorage` (its place in words, a
+fresh name, the free bytes, a file, the sweep) and `IFrameFile` (size it, write at, read at, close, which deletes),
+`FrameCache.Storage` the hook a head sets once at its start, as it sets its GPU engine at the factory, and
+`DiskFrameStorage` the default, with the folder, the drive and the `FileStream` the store had held itself; `FrameStore`
+asks the cache for its file, and `CheckSpace`'s refusal names the storage's place ("on C:\", "in the browser's storage
+for this page"). `library_check` proves a head's storage with one of its own in memory (788 ok). The browser project:
+`OpfsFrameStorage`, set by `Main`. One worker of the page (`wwwroot/frame-storage-worker.js`) holds the files, in a
+folder `frame-cache` of the page's storage, takes the requests one after the other and reads and writes straight in the
+program's memory, whose buffer comes along with each request (it is another object after the memory has grown);
+`frame-storage.js` passes the requests on from the scripts' thread, and the calling thread waits for the answer
+(`ScriptThread`, the bridge the WebGPU engine had of its own, now one class for both). The names carry a mark of the
+session, tabs sharing the storage; the sweep at a start is not waited for, and a file another tab holds open stays.
+Proven on the check page through a `FrameStore` of full-HD frames, 8 in memory and 56 in the storage: the leftover the
+page had planted swept, the room 10 GB, the file made and sized in 17 ms, a frame of 7.9 MB written in 4.5 ms (two
+planes, two calls; 1.7 GB/s with the hand-overs), a plane of 4 MB read in 2.05 ms, every plane byte for byte, three
+threads reading at once and a reader beside the writer right, the files gone with the stores; the engine's 126
+comparisons again, on the shared bridge. In the published head the run that had locked the page: "258 in memory (1.0 GB)
+and 367 on disk", completed in 3.0 s (the writer 1.9 ms a frame over both tiers), a scrub into the stored part drawn.
+**The browser reserves nothing at the sizing**: a file sized to the room and 4 GB more was taken, a write at its end
+too, and the quota counts what is written; so the room is asked before a run, as on a desktop, and a run that outgrew it
+would fail at a write, as on a full drive. The stand-in's line says again that the run goes on, the rest of its frames
+in the frame cache. The UI thread waits for the page's scripts in these calls (a run's start, a read it makes itself), a
+few milliseconds each; no call the other way that waits was met, and none was looked for. **Not in this step, his
+word**: the settings and the user's colour schemes ("there seems to be better places to store settings than the OPFS";
+`localStorage` and IndexedDB are the usual ones; undecided). Open beside it: the memory warning as an overlay. **More
+memory for the frames: the program's whole 4 GB** (the same evening, the user's word: "we should now be using RAM more
+aggressively in the browser version"; and to my first answer, that the program's ceiling could not be raised and the
+frames should go into the page's memory outside it: "why can't we access the full 4GB?", "you need to try harder". He
+was right: I had stopped at the first obstacle). The head is built with `EmccMaximumHeapSize` at 4 GB, the most a 32-bit
+program addresses; the lower 1 GB stays the heap's, the 3 GB above are a run's frames' alone, and
+`FrameMemory.BrowserBudget` is the memory less `BrowserReserve` (1 GB; at least half of a smaller memory; the program
+itself was measured at 0.29 GB at its start and 0.43 GB beside a run's frames, the memory's size read through the
+debugging port). Three things stood in the way, each found by its failure. **(1) No thread starts above 2 GB**:
+`dotnet.runtime.js` (10.0.15) compares the thread's address as the program hands it over, a signed number, with the
+unsigned one it noted ("expected monoThreadInfo to be set already when registering", in every worker, the page hangs),
+and with 3 GB of frames in the general heap the next thread's structure lay up there. Hence the two parts.
+`Native/framearena.c` holds the heap below the limit: the heap is grown to just under it by one large allocation, that
+is shrunk to a small block, which leaves the rest malloc's to hand out, the break is put at the memory's ceiling, so
+every further request of malloc's for more fails, and the small block goes. `FrameArena`, an `IFrameAllocator` (the
+library's new hook, `FrameMemory.Allocator`, set by `Main`; its capacity bounds the budget; `library_check` proves a
+head's allocator with one of its own, 789 ok), hands out the part above, first-fit, the memory made usable as a block is
+first taken (`emscripten_resize_heap`). The frames may lie anywhere: only the program's own code touches them. Three
+forms of the C file failed before that one: with the large allocation freed only after the break's move, the heap was
+without room for a moment and a thread that allocated just then ended the runtime (`gmem.c`); `mallopt` against giving
+memory back does nothing in this C library; a small block allocated to sit on top of the large one landed in a hole
+below it. **And under all of them the compiler had removed the allocation with its free, as dead code**: only the form
+that printed the address had worked, until the address was written to a volatile. `-Wl,--wrap=sbrk`, the plainer way,
+fails at the link ("undefined exported symbol: _sbrk"). **(2) The interpreter's compiler** (the jiterpreter) builds
+modules that take the memory in with a ceiling of 2 GB written into them (`appendULeb(32768)`), so the browser refuses
+each ("memory import has a larger maximum size 65536 than the module's declared maximum 32768"): switched off by the
+runtime's own options in `main.js` (`--no-jiterpreter-traces-enabled`, `--no-jiterpreter-jit-call-enabled`; the third
+part is off with threads anyway and says so when named). Nothing measurable is lost in the compiled head, against the
+build before on the same steps: to "ready" 2.2 to 2.8 s before and 2.9 to 3.0 after, to the first frame 3.6 to 3.9 and
+3.9 (and the build before with the compiler off: 2.1 to 2.3 and 3.0 to 3.4), a hover 76 and 63 to 76 ms, a menu 201 and
+201 to 216 ms, the engine built in 784 and 556 ms, the default run 2.1 and 1.9 s. **(3) Texture uploads**: for a memory
+that may exceed 2 GB emscripten's WebGL layer (the version .NET 10 links) hands over a view of the bytes a call reads,
+not the memory and an offset, and reckons them as width by height with the alignment alone
+(`emscriptenWebGLGetTexPixelData`), while Skia uploads parts of its glyph sheet with `UNPACK_ROW_LENGTH` set:
+"texSubImage2D: ArrayBufferView not big enough for request", 56 a session, and the header strips' texts, the toolbar's
+glyphs, the check marks and some digits were missing. Seen only in a capture, after the numbers had all been good; I
+first took it for Chromium's limit on long views, wrongly, and the wrapper written for that cured nothing; one printed
+line of a failing call's arguments (a view of 3904 bytes for 244 by 16 with a row length of 512) showed what it was.
+`Native/webgl-large-memory.js` notes the pixel store settings as they are set and gives such a call a view long enough.
+It is a `Content` item with `Kind="pre-js"`, the build's own way to hand a script to the link and to make it an input of
+the link step: named in `EmccExtraLDFlags` alone, a changed script was not linked in, and one test ran on the stale one.
+**Proven** on the check page, four starts of four: 388 full-HD frames (3.00 GB) in the frames' part and 16 in the
+storage, written at 1.4 to 1.6 GB/s (interpreted), and with the part full 192 MB of native blocks, 64 MB of arrays, 12
+new threads and a grown thread pool all in the lower part (nothing above 0.39 GB), every plane read back, the WebGPU
+engine's comparison right, the part free and whole again after. In the published head the default project at full
+resolution, which had spilled 1.4 GB: "625 in memory (2.4 GB) and 0 on disk", in 3.2 s and, run again at once, 2.5 s
+(the part reused, the memory's size 3497 MB both times), no upload refused, the interface whole in a capture, a stored
+frame of the upper part drawn right. **Not done**: other browsers (all three are this runtime's and Chromium's behaviour
+as met in Edge 157); a program that needed more than its 1 GB would be out of memory rather than up there; the first
+start still takes 4 GB for a small machine (tier Low). The memory a page has outside its program (a probe held 12 GB in
+a worker's buffers of 8 MB, read back at 7.75 GB/s; a single buffer of 2 GB or more is refused; `navigator.deviceMemory`
+said 32) was my first answer and remains the way beyond 4 GB, not asked for. Harness: `run.ps1` has `eval:<expression>`
+and `alive:<ms>`; `measure.ps1` and `starts.ps1` beside it take a build through the same steps and starts; **look at a
+capture before calling a build good**, the log's numbers had said nothing of the missing glyphs. **Harness notes**:
+`run.ps1`'s `alive:<ms>` step asks the page's main thread for 1+1 and says how long the answer took; its first form
+never matched, the `\b` of its pattern having become a backspace in a bash heredoc (the memory's rule: such scripts are
+written with the Write tool, which this one was not); the private SDK's copy lost
+`hotreload\net10.0\Microsoft.DotNet.HotReload.WebAssembly.Browser.lib.module.js` at 04:30 that night, by what is not
+known, and the Debug build of the browser project failed on its copy (MSB3030) until the file was put back from the
+machine's SDK of the same version. **The frame cache's room and its cleaning up** (2026-11-13, late; the user's
+questions). The room is whatever the storage reports free when a run starts, less 64 MB, with no figure of our own: a
+drive's free space, or in the browser `navigator.storage.estimate()`'s quota less usage. **In Chromium that figure is a
+fixed one**: since 133 a page is told its usage plus 10 GiB, on every machine, so that a site cannot tell incognito mode
+by it (blink-dev, "Predictable reported storage quota"; the quota enforced is unchanged, up to 60 % of the disk per
+MDN), which is what the probes had shown (10.00 GB, 11.00 with 1 GB stored, and a file sized 4 GB past it taken). So a
+run is held to about 13 GB there (3 in memory, just under 10 in the cache; Examples 7 and 30 need 19 to 20 at full
+quality), the check passing what a nearly full disk cannot take and refusing what a large one could. His word: it is to
+be raised "some way or another"; how is open (no check in the browser and a run that fails at a write, or a cap of
+ours). **Who cleans up**: a run's file goes when its store is disposed (the next run, the project replaced); what
+earlier sessions left goes at the next start (`Sweep`); and, since his point that the browser says when a page is
+unloaded, **at `pagehide`** (not when `persisted`): `frame-storage.js` tells the worker, which at once, without waiting
+for the browser, cuts every file to no length and closes it, then removes the names if it lasts that long (`release` in
+`frame-storage-worker.js`, done the moment it comes, not in the queue of requests). The browser's storage has no file
+that deletes itself with the page, as `DeleteOnClose` does with a process. Proven by a throwaway page on the head's own
+two scripts, a file of 1 GB written (Edge 157): gone to another address, reloaded, tab closed, each time 0 MB used
+after; the same tab closed with the page kept from hearing of it, 1024 MB left. And in the published head, the RAM cache
+size at 10 % so the default run spills (414 frames in memory, 211 in the storage): a file of 209 MB while the page
+lives, none after the page went elsewhere; the browser killed instead, the file still there at the next launch, and the
+application's start: "Removed 1 leftover frame cache files from the browser's storage", none after, the sweep seen on a
+real leftover for the first time. Not covered by `pagehide`: a browser killed or crashed, a tab the browser discards, a
+page kept for "back" (never met); the sweep takes those. Driver lessons of that hour: a script parameter `$Head` and a
+variable `$head` or `$script:head` are one variable in PowerShell, typed as the parameter, and a table assigned to it
+became its type's name; a line awaited in a log that already holds it from the page before is found at once: wait for
+one more than there were; `/json/new?<address>` drops the address's own query after the first `&`, a navigation keeps
+it; the head's menus take clicks only in the tab in front.
+**The cache's room is 20 GB, two tabs, and an open crash** (2026-11-14).
+`OpfsFrameStorage.Room` is 20 GB (the user's word: "lift the budget to 20GB", so the examples fit in 3 + 20), a flat
+figure of ours; what the browser reports goes to the log alone, and a write it refuses fails the run. That holds for
+8-bit samples: Example 7 at full resolution and every frame is 776 frames in memory (3.0 GB) and 4224 in the cache
+(16.3 GB), 38 to 40 s; at 16-bit it needs 3.0 + 35.6 GB and is refused in words (the "19 to 20 GB" I had named for the
+largest examples was the 8-bit figure). **A second tab** (his question; tried with two real tabs of one headless Edge on
+the head's two storage scripts): a file a tab holds open is safe from the other tab's start-up sweep and read back as
+written; a file just made and not yet opened was removed by it. Now a session's worker holds a lock of the browser's
+(Web Locks) named after the session's mark, which it reads from a file's name (`sessionOf`, the form `NewPath` gives),
+for the page's life, and a sweep leaves the files of every session whose lock is held: 1 file removed before, 0 after,
+and both once the first tab was closed, whose usage had gone to 0 MB at once. Not handled, his to say: each tab reckons
+its own 20 GB against the one quota (the browser's usage figure counts the other tabs' files, by their length, so one
+room for all tabs is possible) and takes its own 4 GB of memory. **Read in the SDK's C library**: dlmalloc there never
+gives memory back (`MORECORE_CANNOT_TRIM`; `framearena.c`'s note said otherwise and is corrected), and `sbrk` makes the
+memory reach the break before it answers, a request for nothing included, so with the break at the ceiling the first
+allocation the heap cannot serve grows the memory to its 4 GB at once: a memory at its ceiling does not say the frames
+filled it. `emscripten_resize_heap` refuses a memory that is as long already, so `wavedude_commit` looks at the size
+again after a refusal. **Open: the runtime stops now and then in long runs** (Example 7 at full resolution, 5000 frames,
+40 s), on a dead object: `sgen-marksweep.c:328` on a run's thread 0.1 s after the run's start (twice timed),
+`class-accessors.c:90` on the UI thread in Avalonia's text shaping for the timeline 15 s into a run (once, the one stack
+kept). 6 of 17 full-length runs without a click in the Simulation menu, 0 of 15 with the RAM cache set there to 10, 20 or
+70 %, 0 of 19 runs ended after 15 s; one start hung at 100 % CPU with nothing logged. **Two hours went into it without
+a cause, and the user stopped it** ("we are getting NOWHERE"): my explanation, the frame memory at its full 3 GB, was a
+reading of that tally and wrong (0 of 9 at 3.0 GB with the menu clicked). Also ruled out: a browser profile left from
+the run before (removed each time), the engine's script writing past a buffer (read, every write is the size it was
+told), the shaper proxy (not installed in this head). Not known: whether the build before the memory split has it, and
+whether the interpreted build does (one run, fine). **The private SDK, the Python server and the scratch folder are
+gone, and are not to come back** (the same night, the user's words, in anger: essential things do not belong in a TEMP
+folder, which he cleans, as he did; the workload should have been asked for at the start, "refusing to continue to work
+until it was done"; and "We're .NET here, what place does Python even have here!?"). He installed the workload
+(`dotnet workload install wasm-tools`, elevated), so **the machine's own SDK builds the solution, browser head included,
+0 warnings**. **The head starts the way a .NET project starts**: `Properties/launchSettings.json` has the one profile
+(`commandName` Project, `http://localhost:5210` then, `https://localhost:5211` since the same night, the browser
+launched), under which Visual Studio's Start and
+`dotnet run --project WaveDudeNext.Browser` run the WebAssembly SDK's own host (`WasmAppHost`, with
+`--apply-cop-headers` because the project has threads: both isolation headers, read in the SDK's targets and seen on
+the page's answer). **And a Debug build starts now**: emscripten puts the stack first in memory when a link is not
+optimised and names no base for the data (`tools\link.py`), so the main thread's stack began at address 0 and the
+threaded runtime's `g_assert (*staddr != NULL)` stopped it (`mono-threads-wasm.c:201`, the "assertion in the runtime's
+thread code" of 2026-11-12); `-s GLOBAL_BASE=1024` in the link's flags, emscripten's own default named, keeps the data
+first. Proven once: `dotnet run` on the Debug build, the page fetched (200, both headers), a headless Edge at "ready"
+after 10 s with the WebGPU engine and the first scratch frame. Not tried: Start from Visual Studio itself (the same
+run command), the debugger's attachment under F5 (the profile names no `inspectUri`), a Release build under
+`dotnet run`. **Start runs the build, never the publish, and a Debug build is interpreted; the publish**
+(`dotnet publish WaveDudeNext.Browser -c Release`, 10 minutes, into `bin\Release\net10.0-browser\publish`) now
+holds the 20 GB room, the worker's lock and the C file's change: "ready" after 5 s in a headless Edge. **Start on
+`WaveDudeNext.Browser` is the whole of it** (the same night; the user's requirements, each said once and flatly:
+"WaveDudeNext.Browser - I click Start Debugging or Start Without Debugging. and it just works (TM)"; "the URL is
+http://localhost:5211/ period", after an address of mine with `/wwwroot/index.html` in it; "don't ever offer me a
+plain HTTP, only HTTPS will work"). It began with his report that under the .NET host the head "runs very
+stuttery": he had pressed Start in Release (seen in the process list: Visual Studio's host with
+`--use-staticwebassets` on `bin\Release\net10.0-browser`), the SDK's host serves the build, never the publish, and
+the SDK compiles ahead of time at publish alone, so that was the bare interpreter (its `dotnet.native.wasm` 10 MB
+against the publish's 46), with the interpreter's own compiler off in `main.js` on top. Now, all in the project
+file: **a Release build publishes** (`PublishForStart`, after Build; not inside a publish, `_IsPublishing` or
+`DeployOnBuild`, nor in the publish's inner build), **and in Release the run command is the SDK's host on the
+published folder** (`RunArguments` and `RunWorkingDirectory` set after the SDK's own, for which the SDK is
+imported by name at the top and the end of the file instead of on the `Project` element). The host serves a
+folder at the root of its address only through a static-assets manifest beside the runtime configuration, which a
+build writes and a publish does not (without one the site lies under `/wwwroot/` and `/` is a redirect to a
+page that is not there): `WritePublishedSiteManifest`, after every publish, writes one naming the published
+`wwwroot` as the one root (this machine's path in it: a file for running the publish here). `PublishDir` is named
+(`bin\<configuration>\net10.0-browser\publish\`): `dotnet publish` leaves the runtime's name out of the path, a
+publish from a build puts it in. Debug is the interpreted build as before. **The launch profile**:
+`applicationUrl` `https://localhost:5211`, and `ASPNETCORE_URLS` `https://localhost:5211;http://127.0.0.1:0`,
+since Visual Studio had given the host no address from `applicationUrl` (it listened on 50897 and 50898), and
+**the SDK's host does not start without an http address** ("Failed to determine web server's IP address or port":
+its `DevServer.StartAsync` looks for one among its addresses); it gets a port of the system's choosing on the
+loopback address, which its console names beside the https one and nothing else points at. Kestrel takes the
+trusted development certificate (`dotnet dev-certs https --check --trust`). **The SDK's host leaves the isolation
+headers off the page's own scripts**: with `--use-staticwebassets` it sends them for `/` and `_framework/*`, not
+for `main.js`, `frame-storage-worker.js`, `frame-storage.js` or `webgpu-engine.js`, and an isolated page may start
+a worker from an address only when the script's answer carries the embedder policy, so since the switch from the
+Python server, which sent them on everything, the frame cache's worker was refused ("the frame cache's worker
+failed: no reason given", logged at Debug as the leftovers' sweep failing; a run that fits the memory never met
+it). `frame-storage.js` now makes the worker from the script's text (a blob takes its policy from the page), its
+requests put together when the worker is there. **Proven** with Visual Studio's own MSBuild (`MSBuild.exe` of
+its installation; see below why not the CLI): the Release build from nothing, publish included, 10 min 48 s; again
+at once, 31 s, the compiled program untouched; 0 warnings (the trimmer's 22 analysis warnings on our three
+whole-kept assemblies, which a publish prints and a Release build therefore would, are off by
+`SuppressTrimAnalysisWarnings`, the project file says which and why); the solution in Debug 0 warnings. Started
+as Start starts it (`dotnet run --project WaveDudeNext.Browser --no-build`, with `-c Release` and without) and
+loaded once each in a headless Edge: the address stays `https://localhost:5211/`, the page isolated, the first
+scratch frame on the WebGPU engine 5.2 s after the page was asked for in Release and 11.2 s in Debug, and through
+the page's own module a file in the frame cache made, sized, written from the program's memory and closed; plain
+http on 5211 answers nothing. **Not seen: Start pressed in Visual Studio itself** (it reads the same run
+properties and builds with the same MSBuild), and what a Release build costs after a change to our code (the
+publish's share: its assemblies, the shared generics object, the link, the optimiser). **A separate server
+project was made first and thrown out** (`WaveDudeNext.Browser.Server`, ASP.NET Core, the published site with the
+headers on every answer; in the solution for half an hour): "you can already remove the Browser.Server project, I
+don't want it", "Not sure why you would even come up with such an idea". Never add a project on my own.
+**`RunAOTCompilationAfterBuild` was tried for Release and taken out the same night**: a build is not trimmed, so
+all 199 assemblies are compiled: 21 min 53 s from nothing (`dotnet build`, 0 warnings; the program 160 MB linked and
+107 MB after `wasm-opt`, which took 5.7 GB of memory, clang 7.2 GB on the shared generics object), 19 min 22 s when
+our four assemblies alone were new (their code, the generics object `aot-instances` over everything again, the
+link, `wasm-opt`), and **the program it made stopped at its start** (the runtime's exit with a thread dump and no
+message, twice; one check, not followed). **Visual Studio's MSBuild and the CLI's compile our assemblies
+differently**: the second figure is `MSBuild.exe` right after `dotnet build` on unchanged sources (197 of the 199
+compiled objects kept); they also restore different versions of the WebAssembly pack (the CLI 10.0.12, Visual
+Studio's MSBuild 10.0.15, seen in the host's path). **So the browser head's Release configuration is built by
+Visual Studio's MSBuild alone**, his Start or
+`"C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" WaveDudeNext.Browser\WaveDudeNext.Browser.csproj -p:Configuration=Release`:
+a `dotnet build -c Release` or `dotnet publish` of it from the command line makes his next Start compile our
+assemblies again, minutes, and mixes two toolsets' intermediates in one `obj` (see the publish that did not
+start, below). A Release build of the whole solution includes the publish now. `dotnet publish` skips a build's native step (the SDK's `WasmBuildOnlyAfterPublish`, set when
+`_IsPublishing`). **He stopped the measuring** ("we don't need to measure, I LITERALLY TOLD YOU THAT ITS GARBAGE"):
+the one figure taken is the Debug build's playback while a build ran, the presenter's line at 54 to 67 ms a frame of
+960 × 540 in 8-bit, 15 frames a second. **And he was right to be angry at the order of things**: the process list
+and two file sizes had the cause in minutes; a 22-minute build of an untried switch, a probe, and an address with
+`/wwwroot/index.html` in it came before the thing he had asked for. The Python server of 2026-11-12 was still
+running on port 8400 (the notes above said it was gone); ended. **A publish
+after publishes of another kind into the same `obj` does not start** ("aot-runtime.c:2146" at the runtime's load, a
+compiled image that is not its assembly's: the folder had the private SDK's, an interpreted one's and an interrupted
+one's intermediates); `obj\Release` and `bin\Release` of the project deleted, the next publish was right. **The SDK's
+host is not for the published folder**: pointed at it (`dotnet exec …\WasmAppHost.dll --runtime-config
+<publish>\WaveDudeNext.Browser.runtimeconfig.json --apply-cop-headers`) it takes the folder of the runtime
+configuration for its root, so the site lies under `/wwwroot/` and `/` is a redirect to an `index.html` that is not
+there; with `--use-staticwebassets` it wants a `*.staticwebassets.runtime.json` beside the configuration (or
+`mainAssembly` in its host properties), which a publish does not write. The publish also writes a `web.config` for
+IIS, without the two headers.
+**The page isolates itself where the server cannot** (2026-11-14, for GitHub Pages: the user's organisation
+`wavedudenext`, made that day, for `https://wavedudenext.github.io/`, `wavedude` being another's account since 2016;
+his requirement: no F5 by the visitor). GitHub Pages sends no headers of a site's choosing (community discussion
+13309, open for years), so `wwwroot/isolation-worker.js`, a service worker of our own of twenty lines, hands every
+file of the site to the page with the two headers added and keeps nothing, and `main.js` installs it when the page
+is not `crossOriginIsolated`, waits until it is active and loads the page again itself; under Start, whose host
+sends the headers, nothing is installed. Three things, each found by its failure: the threaded runtime's `dotnet.js`
+refuses a page that is not isolated at the moment it is imported, so `main.js` imports it only after the check (as
+a static import it threw before a line of `main.js` had run and the page stayed blank: it had never "said so");
+the note that the page is being loaded again for this lies in its history entry (`history.state`), since what the
+page that is not isolated wrote into `sessionStorage` the isolated one neither saw nor removed (Edge 157), and the
+first visit's note made a later Ctrl+F5 take itself for the load that had failed; and Edge keeps the page left for
+its reload in its back/forward cache and showed it again, waiting for ever, at a reload straight after a Ctrl+F5
+(the debugging port's `Page.reload`), so a `pageshow` handler reloads a restored one. Proven on the Debug build
+served by the SDK's host without `--apply-cop-headers` (no isolation headers, gzip as Pages sends it), in a headless
+Edge 157 with a profile of its own through the debugging port, every document load logged with whether it came
+through the worker: a first visit, two loads and "ready" after 9 s on the WebGPU engine; a second visit, one load;
+Ctrl+F5 (`ignoreCache`), two loads; a reload after it; the worker kept out of every request
+(`Network.setBypassServiceWorker`), two loads and then the page's own message, no loop; let in again, ready; the
+frame cache's worker answering under it; the interface whole in a capture. Not seen: the published site (the same
+three files; `dotnet.js` keeps its name there), GitHub Pages itself, another browser, a browser that gives the page
+no service worker (the message's other branch). The driver was PowerShell with a `ClientWebSocket` (Windows
+PowerShell's `Invoke-RestMethod` hands a JSON array over as one object: enumerate it). The repository `wavedudenext/wavedudenext.github.io`
+exists (made that day on his word with `gh repo create`, public, empty, Pages not yet switched on). **Its clone is
+`C:\Work\wavedudenext.github.io`** (his word, in anger, after I had cloned it under `%TEMP%`: a repository's clone
+is never scratch). **The hand copy** (the same evening, his word, for live testing; a workflow is the other way,
+not built): a Release build with Visual Studio's MSBuild (679 s from that day's changes, 0 warnings), then the files
+the publish's own list names (`publish\WaveDudeNext.Browser.staticwebassets.endpoints.json`, every `AssetFile`
+without the `.br` and `.gz` copies, which Pages never serves: 96 files) into the clone, plus an empty `.nojekyll`
+(a branch deployment runs Jekyll, which leaves out `_framework`): 97 files, 65.7 MB, the largest 44.5 MB. Not the
+folder as it lies: a publish leaves the files of earlier publishes behind (331 files that evening, four
+`dotnet.native.*.wasm` of 44 MB each). The clone has `core.autocrlf` false (true machine-wide): the runtime checks
+the hashes of the files it loads, so they go into the repository byte for byte, which was checked for all 97 after
+staging. Staged and left there until he named the commit and the push, which the git guard needs (75e6c0e on `main`,
+pushed). **The site is live at `https://wavedudenext.github.io/`**: for a repository of that name Pages switched
+itself on at the first push (the branch `main`, its root, HTTPS enforced) and built in 25 s; it sends the files
+gzipped (the runtime 14.0 MB of 44.5) and no isolation header. Seen once in a headless Edge 157 with a profile of
+its own: the first visit two loads, the second through the worker with the embedder policy, "ready" after 7.3 s on
+the WebGPU engine; a second visit one load, 3.6 s; the frame cache's worker answering; the interface whole in a
+capture. Not seen there: a run, another browser. The build was of the working tree, 120 paths ahead of the pushed
+history. **Still to do for the site, each the user's word**: a workflow in place of the hand copy; a visible link
+to the source and the license, About doing nothing in this head.
 
 ## People, name, license
 
