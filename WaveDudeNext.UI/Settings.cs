@@ -46,7 +46,7 @@ public sealed class Settings : INotifyPropertyChanged
 	private static readonly ILogger Logger = LogManager.GetLogger(typeof(Settings).FullName!);
 	private static readonly XmlSerializer Serializer = new(typeof(Settings));
 
-	/// <summary>The settings file.</summary>
+	/// <summary>The settings file, where the settings are kept in one (<see cref="SettingsStore"/>: every desktop head).</summary>
 	public static string FilePath { get; } =
 		Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WaveDudeNext", "Settings.xml");
 
@@ -56,7 +56,7 @@ public sealed class Settings : INotifyPropertyChanged
 	/// </summary>
 	public static bool IsFirstStart { get; private set; }
 
-	/// <summary>This user's settings, read from <see cref="FilePath"/> at first use; the defaults when the file is missing or unreadable.</summary>
+	/// <summary>This user's settings, read from their store (<see cref="SettingsStore.Current"/>, the file at <see cref="FilePath"/> on a desktop) at first use; the defaults when nothing is stored or it is unreadable.</summary>
 	public static Settings Default { get; } = Load();
 
 	/// <inheritdoc/>
@@ -318,17 +318,34 @@ public sealed class Settings : INotifyPropertyChanged
 		PreviewDitherBits = ditherBits;
 	}
 
-	/// <summary>Writes the settings to <see cref="FilePath"/>, creating the folder; file errors are the caller's.</summary>
-	public void Save()
+	/// <summary>
+	/// Writes the settings to their store (<see cref="SettingsStore.Current"/>: the file at <see cref="FilePath"/>,
+	/// whose folder is created, unless the head has another); file errors are the caller's.
+	/// </summary>
+	public void Save() => SettingsStore.Current.Save(this);
+
+	/// <summary>The settings as the XML of the settings file: sparse, indented with tabs, UTF-8 by its declaration.</summary>
+	internal string ToXml()
 	{
-		Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-		using var writer = XmlWriter.Create(FilePath, new XmlWriterSettings
+		using var stream = new MemoryStream();
+		using (var writer = XmlWriter.Create(stream, new XmlWriterSettings
 		{
 			Indent = true,
 			IndentChars = "\t",
 			Encoding = new UTF8Encoding(false),
-		});
-		Serializer.Serialize(writer, this, new XmlSerializerNamespaces([XmlQualifiedName.Empty]));
+		}))
+		{
+			Serializer.Serialize(writer, this, new XmlSerializerNamespaces([XmlQualifiedName.Empty]));
+		}
+		return Encoding.UTF8.GetString(stream.GetBuffer(), 0, (int)stream.Length);
+	}
+
+	/// <summary>The settings a settings file's <paramref name="xml"/> holds.</summary>
+	/// <exception cref="InvalidOperationException">The text is not a settings file's (also <see cref="XmlException"/>).</exception>
+	internal static Settings FromXml(string xml)
+	{
+		using var reader = XmlReader.Create(new StringReader(xml));
+		return Serializer.Deserialize(reader) as Settings ?? throw new InvalidOperationException("The text holds no settings.");
 	}
 
 	/// <summary>
@@ -354,25 +371,23 @@ public sealed class Settings : INotifyPropertyChanged
 
 	private static Settings Load()
 	{
-		if (!File.Exists(FilePath))
-		{
-			Logger.Debug("No settings file at '{Path}': a first start, the defaults and the machine's preview quality", FilePath);
-			IsFirstStart = true;
-			return new Settings();
-		}
+		ISettingsStore store = SettingsStore.Current;
 		try
 		{
-			using var reader = XmlReader.Create(FilePath);
-			if (Serializer.Deserialize(reader) is Settings settings)
+			if (store.Load() is { } stored)
 			{
-				return settings;
+				return stored;
 			}
 		}
-		catch (Exception ex) when (ex is InvalidOperationException or XmlException or IOException or UnauthorizedAccessException)
+		catch (Exception ex) when (ex is UnreadableFileException or IOException or UnauthorizedAccessException)
 		{
-			// the file's text goes into the log under the error (2026-11-03, the user's rule): the next save overwrites the file
-			Logger.Error(new UnreadableFileException(FilePath, ex), "The settings file '{Path}' is unreadable, using the defaults", FilePath);
+			// an unreadable file's text is in the log under the error, which the store's exception carries (2026-11-03,
+			// the user's rule): the next save overwrites the file
+			Logger.Error(ex, "The settings file '{Path}' is unreadable, using the defaults", store.Place);
+			return new Settings();
 		}
+		Logger.Debug("No settings file at '{Path}': a first start, the defaults and the machine's preview quality", store.Place);
+		IsFirstStart = true;
 		return new Settings();
 	}
 

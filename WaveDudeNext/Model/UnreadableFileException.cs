@@ -48,7 +48,18 @@ public sealed class UnreadableFileException : Exception
 		Text = Excerpt(path, inner);
 	}
 
-	/// <summary>The file's full path.</summary>
+	/// <summary>
+	/// Wraps <paramref name="inner"/>, the error reading <paramref name="text"/>, which the caller has already: what is
+	/// not kept in a file (the user settings in a browser's local storage), named by <paramref name="place"/>.
+	/// </summary>
+	public UnreadableFileException(string place, string text, Exception inner)
+		: base($"The file '{place}' could not be read; its text is quoted under the error", inner)
+	{
+		Path = place;
+		Text = ExcerptOf(text, inner);
+	}
+
+	/// <summary>The file's full path, or what stands for it where the text is not kept in a file.</summary>
 	public string Path { get; }
 
 	/// <summary>The file's text as quoted: the first <see cref="MaxChars"/> characters, a note of what is cut, and an XML error's line when it lies beyond; or why the file could not be read at all.</summary>
@@ -74,6 +85,12 @@ public sealed class UnreadableFileException : Exception
 		{
 			return "(the file could not be read: " + ex.Message + ")";
 		}
+		return ExcerptOf(text, error);
+	}
+
+	/// <summary>The quotation of <paramref name="text"/>, read already, as <see cref="Excerpt"/> makes it of a file's.</summary>
+	private static string ExcerptOf(string text, Exception? error)
+	{
 		if (text.Length <= MaxChars)
 		{
 			return text;
