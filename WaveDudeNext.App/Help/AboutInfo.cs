@@ -52,7 +52,7 @@ public static class AboutInfo
 	public const string Gpl = "https://www.gnu.org/licenses/gpl-3.0.html";
 
 	/// <summary>The upstream repository.</summary>
-	public const string Upstream = "https://github.com/graealex/WaveDudeNext";
+	public const string Upstream = "https://github.com/wavedudenext/WaveDudeNext";
 
 	/// <summary>The first credit line, word for word as in the source header, so every place names the author the same way.</summary>
 	public const string CreditVleggaar = "Jeroen Vleggaar (Huygens Optics), author of Wave Dude 2D, Copyright (C) 2026";

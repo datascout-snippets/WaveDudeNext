@@ -48,12 +48,12 @@ WaveDude Next is the successor of Wave Dude 2D by Jeroen Vleggaar (Huygens Optic
 
 ## Get it
 
-**Download.** The [Releases](https://github.com/graealex/WaveDudeNext/releases) page offers each release as two EXEs for 64-bit Windows 10 or 11: a small one that needs the .NET 10 Desktop Runtime, which Windows offers to download on the first start if it is missing, and a larger one with the runtime inside, so nothing has to be installed. GPU acceleration uses the OpenCL driver that comes with the graphics driver. MP4 export uses Windows Media Foundation, which Windows N editions get with the Media Feature Pack.
+**Download.** The [Releases](https://github.com/wavedudenext/WaveDudeNext/releases) page offers each release as two EXEs for 64-bit Windows 10 or 11: a small one that needs the .NET 10 Desktop Runtime, which Windows offers to download on the first start if it is missing, and a larger one with the runtime inside, so nothing has to be installed. GPU acceleration uses the OpenCL driver that comes with the graphics driver. MP4 export uses Windows Media Foundation, which Windows N editions get with the Media Feature Pack.
 
 **Build from source.** With the .NET 10 SDK installed:
 
 ```
-git clone https://github.com/graealex/WaveDudeNext
+git clone https://github.com/wavedudenext/WaveDudeNext
 cd WaveDudeNext
 dotnet build -c Release WaveDudeNext.sln
 ```
@@ -70,7 +70,7 @@ dotnet publish WaveDudeNext.WPF\WaveDudeNext.WPF.csproj -p:PublishProfile=Single
 
 ## Problems
 
-Report problems on the [issue tracker](https://github.com/graealex/WaveDudeNext/issues). The report template asks for the version shown in Help > About, for the system information, which the same dialog copies to the clipboard with one click, and for the log file `WaveDudeNext.WPF.log` from the folder of the program. A separate template exists for feature requests there as well.
+Report problems on the [issue tracker](https://github.com/wavedudenext/WaveDudeNext/issues). The report template asks for the version shown in Help > About, for the system information, which the same dialog copies to the clipboard with one click, and for the log file `WaveDudeNext.WPF.log` from the folder of the program. A separate template exists for feature requests there as well.
 
 ## Credits and license
 

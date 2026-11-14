@@ -2480,8 +2480,13 @@ Alexander Gräf (the user), author of WaveDude Next: his name has the umlaut in 
 README; 2026-10-31, his rule), while the ASCII "Graef" stays in the license headers and the git author, his choice to
 avoid Unicode there. Jeroen Vleggaar, Huygens Optics, author of Wave Dude 2D,
 Copyright (C) 2026. 0x23 (Diffraction Limited), author of WaveSimulator2D, which Jeroen's numerics followed; named by his handle only, at his wish (2026-10-19).
-Private addresses stay out of files. The name was agreed with Jeroen (he proposed "Pro"); the GitHub repository
-`graealex/WaveDude` still has the old name. The header text is the editorconfig template, identical in every file,
+Private addresses stay out of files. The name was agreed with Jeroen (he proposed "Pro"). **The GitHub repository is
+`wavedudenext/WaveDudeNext`** (`https://github.com/wavedudenext/WaveDudeNext`), in the organisation account
+`wavedudenext` since 2026-11-14, moved there from his personal account (`graealex/WaveDudeNext`, `graealex/WaveDude`
+before the rename); the browser version's site is the same organisation's `wavedudenext/wavedudenext.github.io`. The
+README's three links (releases, clone, issues) and the Avalonia head's About (`AboutInfo.Upstream`) name the new
+address; an issue number written down before the move (the native port's, #6) is the same issue there. This clone's
+remote, `github`, still names the old address, which GitHub forwards: his to change. The header text is the editorconfig template, identical in every file,
 never reworded per file.
 
 ## Open items
