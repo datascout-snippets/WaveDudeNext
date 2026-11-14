@@ -34,7 +34,7 @@ namespace WaveDudeNext.UI;
 /// </summary>
 public sealed class RunHost : ObservableObject
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(RunHost).FullName!);
 
 	private readonly ProjectDocument _document;
 	private readonly SceneComposer _scene;

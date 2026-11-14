@@ -52,7 +52,7 @@ public sealed record ExportFailure(string Key, Exception? Error);
 /// </summary>
 public sealed class Exporter : ObservableObject
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(Exporter).FullName!);
 
 	private readonly ProjectDocument _document;
 	private readonly RunHost _runs;

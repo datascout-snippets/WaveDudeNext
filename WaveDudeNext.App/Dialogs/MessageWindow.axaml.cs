@@ -75,7 +75,7 @@ public enum MessageAnswer
 /// </summary>
 public partial class MessageWindow : Window
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(MessageWindow).FullName!);
 	private Button? _defaultButton;
 
 	/// <summary>The parameterless constructor the XAML loader needs; <see cref="Show"/> builds the real window.</summary>

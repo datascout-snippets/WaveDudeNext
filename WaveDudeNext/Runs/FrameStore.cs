@@ -56,7 +56,7 @@ namespace WaveDudeNext.Runs;
 /// </remarks>
 public sealed unsafe class FrameStore : IFrameSource, IDisposable
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(FrameStore).FullName!);
 
 	/// <summary>Size of the file header in bytes.</summary>
 	public const int HeaderSize = 64;

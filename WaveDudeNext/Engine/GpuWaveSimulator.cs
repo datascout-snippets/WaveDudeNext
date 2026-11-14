@@ -1949,7 +1949,7 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 	private IntPtr _probeProgram;
 
 	/// <summary>The engine's log: the device once per process and the grid of every build, both at Debug.</summary>
-	private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+	private static readonly NLog.Logger Logger = NLog.LogManager.GetLogger(typeof(GpuWaveSimulator).FullName!);
 
 	/// <summary>The devices described in the log so far, by name and driver version (<see cref="DescribeOnce"/>); locked on itself, as engines are built on several threads.</summary>
 	private static readonly HashSet<string> _described = [];

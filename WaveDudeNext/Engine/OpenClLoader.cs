@@ -38,7 +38,7 @@ public static class OpenClLoader
 	/// <summary>The import name the OpenCL functions are declared against.</summary>
 	public const string ImportName = "OpenCL";
 
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(OpenClLoader).FullName!);
 
 	private static readonly object Gate = new();
 

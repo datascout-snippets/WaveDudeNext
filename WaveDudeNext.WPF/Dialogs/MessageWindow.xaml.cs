@@ -73,7 +73,7 @@ public enum MessageAnswer
 /// </summary>
 public partial class MessageWindow : Window
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(MessageWindow).FullName!);
 	private MessageAnswer _answer;
 
 	private MessageWindow(string text, MessageKind kind, MessageButtons buttons)

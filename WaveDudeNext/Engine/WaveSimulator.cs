@@ -89,7 +89,7 @@ namespace WaveDudeNext.Engine;
 public sealed class WaveSimulator : IWaveEngine, IDisposable
 {
 	/// <summary>The engine's log: the grid of every build, at Debug.</summary>
-	private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+	private static readonly NLog.Logger Logger = NLog.LogManager.GetLogger(typeof(WaveSimulator).FullName!);
 
 	/// <summary>
 	/// Copies the scene's c² and damping maps into the padded grid, derives the sub-step count (4th order

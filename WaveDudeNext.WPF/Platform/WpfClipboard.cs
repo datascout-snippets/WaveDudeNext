@@ -29,7 +29,7 @@ namespace WaveDudeNext.WPF.Platform;
 /// </summary>
 public sealed class WpfClipboard : IClipboard
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(WpfClipboard).FullName!);
 
 	/// <inheritdoc/>
 	public uint ChangeCount => GetClipboardSequenceNumber();

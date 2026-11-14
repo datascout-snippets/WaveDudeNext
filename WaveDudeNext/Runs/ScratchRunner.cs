@@ -55,7 +55,7 @@ public sealed record ScratchResult(RunSpec Spec, int Frame, FrameSnapshot Snapsh
 /// </remarks>
 public sealed class ScratchRunner : IDisposable
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(ScratchRunner).FullName!);
 
 	/// <summary>How often the worker looks for its cancellation while stepping, in steps.</summary>
 	private const int CheckInterval = 16;

@@ -40,7 +40,7 @@ namespace WaveDudeNext.App.Help;
 /// </summary>
 public partial class ManualWindow : Window
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(ManualWindow).FullName!);
 	private static ManualWindow? _instance;
 	private readonly MarkdownDocument _document;
 	/// <summary>Set while the first row is taken on opening, so the text stays at its top instead of going to the heading.</summary>

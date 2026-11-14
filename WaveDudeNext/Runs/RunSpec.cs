@@ -48,7 +48,7 @@ public sealed class RunSpecException(string message, string? key = null) : Excep
 /// </remarks>
 public sealed class RunSpec
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(RunSpec).FullName!);
 
 	private RunSpec(Project project, ScenePixels? image, int width, int height, bool trackIntensity, bool preferGpu, PreviewQuality quality)
 	{

@@ -41,7 +41,7 @@ namespace WaveDudeNext.UI;
 /// <param name="selection">The selection, carried over a step written back.</param>
 public sealed class UndoHistory(ProjectDocument document, Selection selection) : ObservableObject
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(UndoHistory).FullName!);
 
 	/// <summary>The project's settings objects a selection can hold, by their place: replaced as a whole by a step written back.</summary>
 	private static readonly Func<Project, object>[] SettingsObjects =

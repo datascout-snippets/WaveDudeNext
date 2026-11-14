@@ -45,7 +45,7 @@ public sealed record LanguageOption(string Code, string Name)
 /// </summary>
 public sealed class LanguageController : INotifyPropertyChanged
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(LanguageController).FullName!);
 
 	/// <summary>The string tables that exist, by code, with the language's own name.</summary>
 	private static readonly (string Code, string Name)[] Tables =

@@ -35,7 +35,7 @@ namespace WaveDudeNext.UI;
 /// <param name="clipboard">The system's clipboard.</param>
 public sealed class ObjectClipboard(ProjectDocument document, Selection selection, ProjectItems items, IClipboard clipboard)
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(ObjectClipboard).FullName!);
 
 	/// <summary>
 	/// The clipboard's objects as last parsed and the clipboard's change count then, so the menus' frequent "can paste"

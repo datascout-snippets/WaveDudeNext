@@ -35,7 +35,7 @@ namespace WaveDudeNext.Export;
 [SupportedOSPlatform("windows")]
 public sealed class Mp4Writer : IFrameSink
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(Mp4Writer).FullName!);
 
 	/// <summary>Largest picture the software encoder of Windows takes (4096 × 2304); hardware encoders may do more, but this is the safe limit.</summary>
 	public const long MaxPixels = 4096L * 2304L;

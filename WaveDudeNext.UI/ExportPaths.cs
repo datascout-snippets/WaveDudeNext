@@ -39,7 +39,7 @@ public sealed class ExportPaths(ProjectDocument document)
 	/// <summary>Projects whose export paths the settings keep (<see cref="Settings.ExportHints"/>), the oldest dropped beyond it.</summary>
 	private const int HintCount = 20;
 
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(ExportPaths).FullName!);
 
 	/// <summary>Where the last export of a run's pictures went; null until there is one, or a kept one was restored.</summary>
 	private string? _run;

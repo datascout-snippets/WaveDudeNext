@@ -88,7 +88,7 @@ public enum PickerAction
 /// </summary>
 public sealed class ColorSchemePicker : ComboBox
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(ColorSchemePicker).FullName!);
 
 	/// <summary>More stops than this on a loaded file means a sampled table, which is slimmed to its bends.</summary>
 	private const int SampledTableStops = 32;

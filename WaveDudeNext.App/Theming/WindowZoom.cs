@@ -51,7 +51,7 @@ namespace WaveDudeNext.App.Theming;
 /// </summary>
 public static class WindowZoom
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(WindowZoom).FullName!);
 
 	/// <summary>The attached windows with the zoom their sizes were last multiplied by; weak, so a closed window is forgotten.</summary>
 	private static readonly ConditionalWeakTable<Window, State> Windows = new();

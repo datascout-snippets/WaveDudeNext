@@ -47,7 +47,7 @@ namespace WaveDudeNext.UI;
 /// <param name="uiThread">Posts to the UI thread; the file watcher's events arrive on a thread of its own.</param>
 public sealed class SceneImageFile(ProjectDocument document, IImageDecoder decoder, SynchronizationContext uiThread) : ObservableObject
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(SceneImageFile).FullName!);
 
 	/// <summary>Folders beside the project file where a project without a path may find its image by name: the folder itself and the author's layout.</summary>
 	private static readonly string[] Folders = ["", "scene_images"];

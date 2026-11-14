@@ -133,7 +133,7 @@ public sealed class SceneOverlay : Panel
 	private const double LabelOffset = 13.0;
 	private const double LabelSize = 11.0;
 
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(SceneOverlay).FullName!);
 
 	/// <summary>Least distance of a rotation handle from its source's centre, in pixels.</summary>
 	private const double AngleHandleReach = 28.0;

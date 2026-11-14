@@ -36,7 +36,7 @@ namespace WaveDudeNext.Model;
 /// </summary>
 public static class LegacyProject
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(LegacyProject).FullName!);
 
 	/// <summary>File name of a legacy project's configuration inside its folder.</summary>
 	public const string FileName = "configuration.json";

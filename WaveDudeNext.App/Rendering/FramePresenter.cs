@@ -50,7 +50,7 @@ namespace WaveDudeNext.App.Rendering;
 /// </summary>
 public sealed class FramePresenter
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(FramePresenter).FullName!);
 
 	/// <summary>Every this many presented frames the average cost is logged at Debug level.</summary>
 	private const int RenderLogInterval = 100;

@@ -44,7 +44,7 @@ namespace WaveDudeNext.WPF.Help;
 /// </summary>
 public partial class ManualWindow : Window
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(ManualWindow).FullName!);
 	/// <summary>Every heading of the document as a tree, the title included: what a link to "#anchor" is looked up in.</summary>
 	private readonly IReadOnlyList<ManualHeading> _all;
 	/// <summary>The viewer's scroll viewer, from its template once the window is loaded.</summary>

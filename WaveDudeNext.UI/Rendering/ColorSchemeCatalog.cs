@@ -32,7 +32,7 @@ namespace WaveDudeNext.UI.Rendering;
 /// </summary>
 public sealed class ColorSchemeCatalog
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(ColorSchemeCatalog).FullName!);
 
 	/// <summary>The single catalog of the application.</summary>
 	public static ColorSchemeCatalog Instance { get; } = new();

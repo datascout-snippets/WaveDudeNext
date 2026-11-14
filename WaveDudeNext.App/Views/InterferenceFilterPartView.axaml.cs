@@ -51,7 +51,7 @@ public partial class InterferenceFilterPartView : UserControl
 	public static readonly AttachedProperty<bool> IsLastProperty =
 		AvaloniaProperty.RegisterAttached<InterferenceFilterPartView, Control, bool>("IsLast");
 
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(InterferenceFilterPartView).FullName!);
 
 	/// <summary>The drag format of a layer row: a marker, in this process only; the layer itself stays in <see cref="_dragged"/>, and another target does not take it.</summary>
 	private static readonly DataFormat<string> LayerFormat = DataFormat.CreateStringApplicationFormat("WaveDudeNext.FilterLayer");

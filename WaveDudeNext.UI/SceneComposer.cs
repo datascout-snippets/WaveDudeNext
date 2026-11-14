@@ -39,7 +39,7 @@ namespace WaveDudeNext.UI;
 /// </param>
 public sealed class SceneComposer(ProjectDocument document, IImageDecoder decoder, SynchronizationContext idle) : ObservableObject
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(SceneComposer).FullName!);
 
 	private (string Path, DateTime Written, ScenePixels Pixels)? _imageCache;
 	private (byte[] Data, ScenePixels Pixels)? _embeddedCache;

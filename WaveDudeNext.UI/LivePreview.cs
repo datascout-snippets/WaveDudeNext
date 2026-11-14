@@ -49,7 +49,7 @@ namespace WaveDudeNext.UI;
 /// </summary>
 public sealed class LivePreview : ObservableObject
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(LivePreview).FullName!);
 
 	private readonly ProjectDocument _document;
 	private readonly RunHost _runs;

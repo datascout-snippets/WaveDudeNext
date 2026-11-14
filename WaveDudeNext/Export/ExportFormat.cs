@@ -51,7 +51,7 @@ public enum ExportFormat
 /// <summary>What is known about each <see cref="ExportFormat"/>: extensions, whether it is a sequence, how to open its sink.</summary>
 public static class ExportFormats
 {
-	private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+	private static readonly NLog.Logger Logger = NLog.LogManager.GetLogger(typeof(ExportFormats).FullName!);
 
 	/// <summary>
 	/// The preferred JPEG encoder: given the frame size and the quality 1..100, a writer of one packed BGRA32

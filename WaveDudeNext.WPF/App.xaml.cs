@@ -42,8 +42,13 @@ namespace WaveDudeNext.WPF;
 /// </summary>
 public partial class App : Application
 {
-	/// <summary>Logger of the application class; other classes get their own via <see cref="LogManager.GetCurrentClassLogger"/>.</summary>
-	public static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	/// <summary>
+	/// Logger of the application class; other classes get their own, each named by its class
+	/// (<c>LogManager.GetLogger(typeof(X).FullName!)</c>), never from the call stack
+	/// (<c>LogManager.GetCurrentClassLogger()</c>): the browser head's build compiled ahead of time has no methods on
+	/// its stack, and every logger made that way had an empty name there (2026-11-14, the user's report).
+	/// </summary>
+	public static readonly ILogger Logger = LogManager.GetLogger(typeof(App).FullName!);
 
 	private const string FileLayout =
 		"${date:format=yyyy-MM-dd HH\\:mm\\:ss}\t${threadid}\t${level}\t${logger}\t${message}\t${onexception:EXCEPTION\\: ${exception:format=tostring}}";

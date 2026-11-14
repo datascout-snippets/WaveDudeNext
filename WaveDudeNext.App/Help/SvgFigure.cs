@@ -47,7 +47,7 @@ public sealed partial class SvgFigure
 	private const string XLinkNamespace = "http://www.w3.org/1999/xlink";
 	/// <summary>Half the width of the box a figure's text is centred in: a canvas places a box, not a text anchor.</summary>
 	private const double TextReach = 1000;
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(SvgFigure).FullName!);
 	private static readonly string[] GenericFamilies = ["serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui"];
 
 	private readonly string _name;

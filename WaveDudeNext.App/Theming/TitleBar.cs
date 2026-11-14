@@ -37,7 +37,7 @@ namespace WaveDudeNext.App.Theming;
 /// </summary>
 internal static class TitleBar
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(TitleBar).FullName!);
 
 	/// <summary>The attribute this build of Windows takes, 0 where there is nothing for this class to do.</summary>
 	private static readonly int Attribute = OperatingSystem.IsWindows() ? Environment.OSVersion.Version.Build switch

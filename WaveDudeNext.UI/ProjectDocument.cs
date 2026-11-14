@@ -72,7 +72,7 @@ public sealed class ProjectDocument : ObservableObject
 	/// <summary>Files the recent list keeps.</summary>
 	private const int RecentFileCount = 10;
 
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(ProjectDocument).FullName!);
 
 	private Project _project = new();
 	private ProjectWatcher _watcher;

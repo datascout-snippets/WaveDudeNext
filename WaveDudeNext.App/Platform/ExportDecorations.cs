@@ -32,7 +32,7 @@ namespace WaveDudeNext.App.Platform;
 /// </summary>
 public static class ExportDecorations
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(ExportDecorations).FullName!);
 
 	/// <summary>
 	/// The decoration of <paramref name="layer"/>'s picture, or null when there is nothing to draw: the display wants

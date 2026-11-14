@@ -100,6 +100,15 @@ harnesses run.
   read with today's defaults.
 - **C# style**: modern and concise, expression-bodied accessors, no `this.`, no `IDisposable` on interfaces,
   `out` not `ref`, tabs, Allman; `///` docs state threading, units and coordinate systems. `grep -E`, not `-P`.
+- **A logger is named by its class, never from the call stack**: `LogManager.GetLogger(typeof(X).FullName!)`, not
+  `LogManager.GetCurrentClassLogger()` (2026-11-14, the user's report: in the browser head's build compiled ahead of
+  time the stack has no methods, so every logger made the second way had an empty name and the log no sources; 68
+  loggers in the four projects changed by a one-off script, the browser project's four from `nameof`). The names are
+  the ones the stack gave: the desktop head's log has the same 18 in a start as before, none empty. The compiled
+  browser build itself was not built for it; its one logger named this way was the one that showed. With it the
+  two start-up lines that said nothing in a browser, "Application: 'NULL'" and "Log file: ''", are left out where
+  there is no executable and no log file, and the browser head's first line is "Application: '<the page's
+  address>'".
 - **Log decisions at Debug** (scratch requests, stale marks, postponed re-runs, export steps). Info and up reach
   the status bar; Trace only in Debug builds. Log messages are not localised, and their numbers are invariant (NLog's
   DefaultCultureInfo, 2026-10-27, the user's rule: a report's reader or tool must not trip over a decimal comma). **The log must let a report be

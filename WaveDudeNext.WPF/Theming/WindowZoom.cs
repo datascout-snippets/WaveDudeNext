@@ -63,7 +63,7 @@ namespace WaveDudeNext.WPF.Theming;
 /// </summary>
 public static class WindowZoom
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(WindowZoom).FullName!);
 
 	/// <summary>Whether the window takes the UI zoom; set by the theme's Window style.</summary>
 	public static readonly DependencyProperty EnabledProperty = DependencyProperty.RegisterAttached(

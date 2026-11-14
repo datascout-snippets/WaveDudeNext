@@ -56,7 +56,7 @@ public sealed record LanguageOption(string Code, string Name)
 /// </summary>
 public sealed class LanguageController : INotifyPropertyChanged
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(LanguageController).FullName!);
 
 	/// <summary>A key every string table defines, used to recognise the table among the merged dictionaries.</summary>
 	private const string ProbeKey = "MenuFile";

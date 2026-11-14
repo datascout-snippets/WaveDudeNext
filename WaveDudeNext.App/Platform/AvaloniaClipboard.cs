@@ -34,7 +34,7 @@ namespace WaveDudeNext.App.Platform;
 /// <param name="owner">The window whose clipboard is used.</param>
 public sealed class AvaloniaClipboard(Window owner) : IClipboard
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(AvaloniaClipboard).FullName!);
 
 	private (uint ChangeCount, string? Text)? _read;
 	private uint _reading;

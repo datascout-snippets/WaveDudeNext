@@ -57,7 +57,7 @@ public sealed class Project : ObservableObject
 		HookSchemes(_colorSchemes);
 	}
 
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(Project).FullName!);
 	private static readonly XmlSerializer Serializer = new(typeof(Project));
 	/// <summary>No namespace declarations on the root: the file as it is written, and the history's snapshots of it.</summary>
 	internal static readonly XmlSerializerNamespaces NoNamespaces = new([XmlQualifiedName.Empty]);

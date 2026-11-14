@@ -40,7 +40,7 @@ namespace WaveDudeNext.App.Theming;
 /// </summary>
 public sealed class ThemeController : INotifyPropertyChanged
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(ThemeController).FullName!);
 
 	private AppTheme _current = AppTheme.Dark;
 

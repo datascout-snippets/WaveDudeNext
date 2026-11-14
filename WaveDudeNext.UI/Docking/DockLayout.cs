@@ -32,7 +32,7 @@ namespace WaveDudeNext.UI.Docking;
 [XmlRoot("DockLayout")]
 public sealed class DockLayout
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(DockLayout).FullName!);
 	private static readonly XmlSerializer Serializer = new(typeof(DockLayout));
 
 	/// <summary>Root of the tree: a split, a group, or the document node.</summary>

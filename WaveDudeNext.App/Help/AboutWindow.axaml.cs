@@ -39,7 +39,7 @@ namespace WaveDudeNext.App.Help;
 /// </summary>
 public partial class AboutWindow : Window
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(AboutWindow).FullName!);
 	/// <summary>The document box's height while the window is sized to its content (the XAML value).</summary>
 	private const double LicenseBoxHeight = 260;
 	/// <summary>The grid row of the license document and of the filler above the buttons (the XAML's RowDefinitions).</summary>

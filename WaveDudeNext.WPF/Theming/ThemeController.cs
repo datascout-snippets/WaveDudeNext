@@ -45,7 +45,7 @@ namespace WaveDudeNext.WPF.Theming;
 /// </remarks>
 public sealed class ThemeController : INotifyPropertyChanged
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(ThemeController).FullName!);
 	private const string PersonalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
 	private const int DwmwaUseImmersiveDarkMode = 20;
 	private const int WmSettingChange = 0x001A;

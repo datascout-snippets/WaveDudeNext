@@ -50,7 +50,7 @@ namespace WaveDudeNext.App.Theming;
 /// </summary>
 public class WholePixelShaper : DispatchProxy
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(WholePixelShaper).FullName!);
 
 	private object? _inner;
 

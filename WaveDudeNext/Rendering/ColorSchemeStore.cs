@@ -50,7 +50,7 @@ public static class ColorSchemeStore
 	/// <summary>Extension of a standalone XML scheme file.</summary>
 	public const string XmlExtension = ".wdscheme";
 
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(ColorSchemeStore).FullName!);
 
 	/// <summary>Prefix of the embedded scheme resources (see the csproj's <c>LogicalName</c>).</summary>
 	private const string ResourcePrefix = "ColorSchemes/";

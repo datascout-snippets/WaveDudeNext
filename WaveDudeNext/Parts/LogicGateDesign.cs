@@ -36,7 +36,7 @@ namespace WaveDudeNext.Parts;
 /// </summary>
 public sealed class LogicGateDesign
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(LogicGateDesign).FullName!);
 
 	/// <summary>How much higher the phase section's core index is than the core's.</summary>
 	public const double PhaseIndexStep = 0.1;

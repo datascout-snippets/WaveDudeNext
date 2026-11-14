@@ -71,7 +71,7 @@ public enum PickerAction
 /// </summary>
 public sealed class ColorSchemePicker : ComboBox
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(ColorSchemePicker).FullName!);
 	/// <summary>More stops than this on a loaded file means a sampled table, which is slimmed to its bends.</summary>
 	private const int SampledTableStops = 32;
 	/// <summary>The tolerance (largest channel difference, 0 to 255) the shipped colormaps were slimmed with.</summary>

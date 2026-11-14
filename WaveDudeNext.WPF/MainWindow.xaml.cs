@@ -48,7 +48,7 @@ namespace WaveDudeNext.WPF;
 /// </summary>
 public partial class MainWindow : Window
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(MainWindow).FullName!);
 
 	public MainWindow()
 	{

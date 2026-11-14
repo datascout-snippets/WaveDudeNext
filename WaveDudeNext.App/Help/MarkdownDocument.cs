@@ -84,7 +84,7 @@ public sealed partial class MarkdownDocument
 	/// <summary>The font of code spans and code blocks: Consolas where it exists (Windows), else a common monospace, else the platform's.</summary>
 	public static readonly FontFamily CodeFont = new("Consolas, Cascadia Mono, DejaVu Sans Mono, Liberation Mono, Noto Sans Mono, monospace");
 
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(MarkdownDocument).FullName!);
 
 	[GeneratedRegex(@"^(#{1,6})(?:[ \t]+(.*))?$")]
 	private static partial Regex Atx();

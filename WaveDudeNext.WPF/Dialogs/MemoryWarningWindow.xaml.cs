@@ -42,7 +42,7 @@ public partial class MemoryWarningWindow : Window
 	/// <summary>The largest divisor the View menu offers: a lever there has no notch left.</summary>
 	private const int MaxDivisor = 4;
 
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(MemoryWarningWindow).FullName!);
 	private readonly RunSpec _spec;
 	private readonly long _budget;
 	private readonly long _autoBudget;

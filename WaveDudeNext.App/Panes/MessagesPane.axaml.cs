@@ -45,7 +45,7 @@ public partial class MessagesPane : UserControl, INotifyPropertyChanged
 	public static readonly StyledProperty<string> TargetNameProperty =
 		AvaloniaProperty.Register<MessagesPane, string>(nameof(TargetName), MessagesTarget.DefaultName);
 
-	private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Log = LogManager.GetLogger(typeof(MessagesPane).FullName!);
 
 	/// <summary>
 	/// Trace and Debug start visible in Debug builds only; Info and above always do. A Release build logs no Trace at

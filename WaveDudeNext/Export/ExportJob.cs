@@ -80,7 +80,7 @@ public sealed record ExportTarget(ExportLayer Layer, string Output, Func<IFrameS
 /// </summary>
 public sealed class ExportJob : INotifyPropertyChanged
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(ExportJob).FullName!);
 
 	/// <summary>Least interval between progress posts.</summary>
 	private const long ProgressIntervalMs = 100;

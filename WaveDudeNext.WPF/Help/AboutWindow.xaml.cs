@@ -36,7 +36,7 @@ namespace WaveDudeNext.WPF.Help;
 /// </summary>
 public partial class AboutWindow : Window
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(AboutWindow).FullName!);
 	/// <summary>The document box's height while the window is sized to its content (the XAML value).</summary>
 	private const double LicenseBoxHeight = 260;
 	private readonly string _report;

@@ -34,7 +34,7 @@ namespace WaveDudeNext.UI;
 /// </summary>
 public sealed class AutoBrightness : ObservableObject
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(AutoBrightness).FullName!);
 
 	private readonly ProjectDocument _document;
 	private readonly RunHost _runs;

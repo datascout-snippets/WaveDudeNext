@@ -44,7 +44,7 @@ namespace WaveDudeNext.WPF.Panes;
 /// </summary>
 public partial class ProjectTree : UserControl
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(ProjectTree).FullName!);
 
 	/// <summary>Identifies the <see cref="Project"/> property.</summary>
 	public static readonly DependencyProperty ProjectProperty = DependencyProperty.Register(

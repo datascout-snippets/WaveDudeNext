@@ -31,7 +31,7 @@ namespace WaveDudeNext.WPF.Platform;
 /// </summary>
 public sealed class WpfFrameDecorators : IFrameDecorators
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(WpfFrameDecorators).FullName!);
 
 	/// <inheritdoc/>
 	public IFrameDecorator Create(Project project, SimulationRun run) => new Decorator(project, run);

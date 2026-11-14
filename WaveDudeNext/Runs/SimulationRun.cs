@@ -43,7 +43,7 @@ namespace WaveDudeNext.Runs;
 /// </remarks>
 public sealed class SimulationRun : INotifyPropertyChanged, IDisposable
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(SimulationRun).FullName!);
 
 	/// <summary>Least interval between progress (<see cref="StepsDone"/>) posts.</summary>
 	/// <summary>

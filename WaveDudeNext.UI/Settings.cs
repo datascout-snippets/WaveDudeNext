@@ -43,7 +43,7 @@ namespace WaveDudeNext.UI;
 [XmlRoot("Settings")]
 public sealed class Settings : INotifyPropertyChanged
 {
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(Settings).FullName!);
 	private static readonly XmlSerializer Serializer = new(typeof(Settings));
 
 	/// <summary>The settings file.</summary>

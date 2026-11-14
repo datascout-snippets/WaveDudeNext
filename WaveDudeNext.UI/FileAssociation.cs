@@ -65,7 +65,7 @@ public static class FileAssociation
 	/// <summary><c>SHChangeNotify</c> flag: the item parameters are ID lists (both null here).</summary>
 	private const uint SHCNF_IDLIST = 0x0000;
 
-	private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly ILogger Logger = LogManager.GetLogger(typeof(FileAssociation).FullName!);
 
 	/// <summary>
 	/// Makes files with <paramref name="extension"/> (leading dot included) open with

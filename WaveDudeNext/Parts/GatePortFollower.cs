@@ -33,7 +33,7 @@ namespace WaveDudeNext.Parts;
 /// </summary>
 public sealed class GatePortFollower : IDisposable
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(GatePortFollower).FullName!);
 
 	/// <summary>How far, in canvas pixels on either axis, a source may stand from an input port and still count as on it.</summary>
 	public const int Reach = 1;

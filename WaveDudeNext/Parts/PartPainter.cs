@@ -44,7 +44,7 @@ namespace WaveDudeNext.Parts;
 /// </summary>
 public static class PartPainter
 {
-	private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+	private static readonly Logger Logger = LogManager.GetLogger(typeof(PartPainter).FullName!);
 
 	/// <summary>Samples per pixel edge for refractive parts.</summary>
 	public const int Supersample = 4;
