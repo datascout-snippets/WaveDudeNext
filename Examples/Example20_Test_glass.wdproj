@@ -5,7 +5,7 @@
 	<Simulation Steps="4000" TimeDecay="5" />
 	<Display>
 		<Field ColorScheme="Default field" BlackLevel="-0.05" />
-		<Intensity ColorScheme="Default intensity" Brightness="5" />
+		<Intensity ColorScheme="Default intensity" Brightness="10" />
 		<Video Quality="70" />
 	</Display>
 	<Source Name="Source 1" X="185" Y="549" Frequency="160" Mode="Pulsed" PulseWidth="30" OffWidth="2000">

@@ -41,8 +41,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{14
 		Examples\Example20_Test_glass.wdproj = Examples\Example20_Test_glass.wdproj
 		Examples\Example21_Ball_lens.wdproj = Examples\Example21_Ball_lens.wdproj
 		Examples\Example22_Coherence_and_ball_lens.wdproj = Examples\Example22_Coherence_and_ball_lens.wdproj
-		Examples\Example23_Fibers.wdproj = Examples\Example23_Fibers.wdproj
-		Examples\Example24_Fiber_cross_over.wdproj = Examples\Example24_Fiber_cross_over.wdproj
+		Examples\Example23_Fibres.wdproj = Examples\Example23_Fibres.wdproj
+		Examples\Example24_Fibre_cross_over.wdproj = Examples\Example24_Fibre_cross_over.wdproj
+		Examples\Example25_Lens_vs_Fresnel_lens.wdproj = Examples\Example25_Lens_vs_Fresnel_lens.wdproj
+		Examples\Example26_Three_diffusers_in_a_row.wdproj = Examples\Example26_Three_diffusers_in_a_row.wdproj
+		Examples\Example27_Interference_filter.wdproj = Examples\Example27_Interference_filter.wdproj
+		Examples\Example28_Blazed_grating_spectrometer.wdproj = Examples\Example28_Blazed_grating_spectrometer.wdproj
+		Examples\Example29_Diffraction_on_a_crystal_lattice.wdproj = Examples\Example29_Diffraction_on_a_crystal_lattice.wdproj
+		Examples\Example30_Meta_prism.wdproj = Examples\Example30_Meta_prism.wdproj
+		Examples\Example31_Meta_lens_with_photomultiplier.wdproj = Examples\Example31_Meta_lens_with_photomultiplier.wdproj
+		Examples\Example32_Multi_Pixel_Photon_Counter.wdproj = Examples\Example32_Multi_Pixel_Photon_Counter.wdproj
+		Examples\Example33_Fibre_splitter_with_2_PMs.wdproj = Examples\Example33_Fibre_splitter_with_2_PMs.wdproj
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ISSUE_TEMPLATE", "ISSUE_TEMPLATE", "{5281FB31-8A9B-4550-B555-88BA62C8B2AB}"

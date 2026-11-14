@@ -5,7 +5,7 @@
 	<Simulation Steps="3000" WaveSpeed="0.563" TimeDecay="8" />
 	<Display>
 		<Field ColorScheme="Yellow purple" Brightness="80" BlackLevel="-0.05" Preview="false" />
-		<Intensity ColorScheme="Copper" Brightness="80" />
+		<Intensity ColorScheme="Copper" Brightness="120" />
 		<Video Quality="80" />
 	</Display>
 	<Source Name="Source 1" X="570" Y="544" Frequency="200" Mode="Pulsed" PulseWidth="70" OffWidth="100" DetachAfter="670" />

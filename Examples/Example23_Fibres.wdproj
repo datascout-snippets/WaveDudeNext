@@ -9,7 +9,7 @@ Includes the use of two probes, an A-B (line) field probe and a single point int
 	<Simulation Steps="6000" WaveSpeed="0.563" />
 	<Display>
 		<Field ColorScheme="Default field" Brightness="20" BlackLevel="-0.05" />
-		<Intensity ColorScheme="Default intensity" Brightness="20" />
+		<Intensity ColorScheme="Default intensity" Brightness="28" />
 		<Video Quality="80" />
 	</Display>
 	<Source Name="Source 1" X="135" Y="198" Mode="Pulsed" PulseShape="SmoothedSquare" PulseWidth="15" OffWidth="15" />

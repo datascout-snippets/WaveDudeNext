@@ -5,7 +5,7 @@
 	<Simulation Steps="3800" />
 	<Display>
 		<Field ColorScheme="Default field" Brightness="6" BlackLevel="-0.05" />
-		<Intensity ColorScheme="Inferno" Brightness="6" />
+		<Intensity ColorScheme="Inferno" Brightness="8" />
 		<Video Quality="70" />
 	</Display>
 	<Source Name="Source 2" X="258" Y="533" Frequency="50" Amplitude="30">
