@@ -281,6 +281,9 @@ version. It is distributed WITHOUT ANY WARRANTY. See the LICENSE.md file or
 	<StreamGeometry x:Key="IconZoom">M6.5,1.5 A5,5 0 1 0 6.5,11.5 A5,5 0 1 0 6.5,1.5 Z M10,10 L14.5,14.5</StreamGeometry>
 	<!-- a globe (View > Language) -->
 	<StreamGeometry x:Key="IconLanguage">M7.5,0.5 A7,7 0 1 0 7.5,14.5 A7,7 0 1 0 7.5,0.5 Z M0.5,7.5 H14.5 M7.5,0.5 C4.5,4 4.5,11 7.5,14.5 M7.5,0.5 C10.5,4 10.5,11 7.5,14.5</StreamGeometry>
+	<!-- a capital and a small a, the usual sign of a font. Kept as a drawing and on no entry at present: View > Use the
+	     system's font (the browser head) is an entry with a mark, and the mark is drawn where an icon would be -->
+	<StreamGeometry x:Key="IconSystemFont">M0.5,12.5 L4.5,2.5 L8.5,12.5 M2.1,8.5 H6.9 M14.5,10 A2.5,2.5 0 1 0 9.5,10 A2.5,2.5 0 1 0 14.5,10 Z M14.5,7.5 V12.5</StreamGeometry>
 	<!-- an i in a circle (Help > About) -->
 	<StreamGeometry x:Key="IconAbout">M7.5,0.5 A7,7 0 1 0 7.5,14.5 A7,7 0 1 0 7.5,0.5 Z M7.5,6.5 V11.5 M7.5,3.5 V4.5</StreamGeometry>
 	<!-- a book (Help > Manual) -->
