@@ -1767,8 +1767,24 @@ provides); `Library` names the one loaded, logged once at Debug; when none loads
 `WaveEngineFactory`'s reason for the CPU engine names the candidates. The contributed port had the same resolver in
 a `PlatformSupport` class the applications had to call; here nothing calls anything. `library_check` proves the
 candidates for the OS it runs on and that the loader resolved to the first (LIBRARY OK on Windows, `OpenCL.dll`); the
-Linux and macOS cases are proven when those machines boot. Still to come for Linux: the memory facts from
-`/proc/meminfo`, `StorageDevice` answering unknown, the H.264 sink absent without Media Foundation, the paths.
+Linux and macOS cases are proven when those machines boot.
+**The memory and storage facts are read on Linux and macOS too** (2026-11-12, the user's next pick): `FrameMemory`
+reads `/proc/meminfo` on Linux, `MemTotal` for the physical memory and `MemAvailable` for the available (the kernel's
+estimate of what new allocations may take without swapping, the reclaimable page cache counted as Windows counts its
+standby list; `MemFree` on a kernel before 3.14), capped by `CommitLimit` less `Committed_AS` under strict
+overcommit alone (`/proc/sys/vm/overcommit_memory` 2; the default heuristic mode refuses nothing by that limit); on
+macOS the runtime's `hw.memsize` is the physical memory and Mach's `host_statistics64` (`HOST_VM_INFO64`, 38 words,
+the `vm_statistics64` layout) gives the available as the free, inactive, speculative and purgeable pages times
+`getpagesize()`, what the system hands out without compressing or swapping (no commit limit there); P/Invoke to
+`libc`, which re-exports libSystem. `StorageDevice.IncursSeekPenalty` answers on Linux from the mount holding the
+path (`/proc/self/mountinfo`, the longest mount point that holds it, its major:minor) through
+`/sys/dev/block/<major:minor>` to the device's `queue/rotational`, a partition's at its disk (the entry's parent), null
+for a mount without a block queue (network, btrfs over several devices); on macOS null (IOKit would be needed, the
+machines have SSDs; unknown counts as none in the tier). `StorageDevice.VolumeOf` names the volume for the log: the
+drive letter, the mount point on Linux, else the root; `MachineFacts` uses it. The parsers are pure and
+`library_check` proves them on fixed texts (meminfo lax and strict and old, the pages, a mount table with nested and
+escaped mount points, the rotational attribute); the live readings are proven when the machines boot, the macOS
+structure layout above all. Still to come for Linux: the H.264 sink absent without Media Foundation, the paths.
 
 ## People, name, license
 

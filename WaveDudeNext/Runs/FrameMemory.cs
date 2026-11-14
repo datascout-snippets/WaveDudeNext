@@ -16,6 +16,7 @@
 // <https://www.gnu.org/licenses/>.
 
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace WaveDudeNext.Runs;
 
@@ -24,8 +25,14 @@ namespace WaveDudeNext.Runs;
 /// when a run starts, from what the machine has to spare at that moment: a share of the physical memory (the
 /// user's setting), but never more than what is available now minus a margin for the rest of the application
 /// and the system, so a run never pushes the machine into its page file. Windows answers through
-/// <c>GlobalMemoryStatusEx</c>; elsewhere the runtime's view of the total serves, with half of it taken as
-/// available. Thread-free.
+/// <c>GlobalMemoryStatusEx</c>; Linux through <c>/proc/meminfo</c> (<c>MemTotal</c> and <c>MemAvailable</c>, the
+/// kernel's own estimate of what new allocations may take without swapping, the page cache's reclaimable part
+/// counted as Windows counts its standby list; and under strict overcommit, <c>vm.overcommit_memory</c> 2, the
+/// commit left as well, <c>CommitLimit</c> less <c>Committed_AS</c>, the lesser of the two taken as on Windows);
+/// macOS through Mach's <c>host_statistics64</c> (the free, inactive, speculative and purgeable pages, what the
+/// system hands out without compressing or swapping; the total is the runtime's <c>hw.memsize</c>); elsewhere the
+/// runtime's view of the total serves, with half of it taken as available (2026-11-12, the Linux and macOS ports).
+/// Thread-free.
 /// </summary>
 public static class FrameMemory
 {
@@ -45,6 +52,11 @@ public static class FrameMemory
 		{
 			return (long)Math.Min(status.TotalPhys, long.MaxValue);
 		}
+		if (OperatingSystem.IsLinux() && TryMemInfo(out MemInfo info))
+		{
+			return info.TotalBytes;
+		}
+		// macOS and the rest: the runtime reads hw.memsize there (a cgroup limit on Linux, where this is the fallback)
 		return GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
 	}
 
@@ -60,6 +72,14 @@ public static class FrameMemory
 		if (OperatingSystem.IsWindows() && TryStatus(out MemoryStatus status))
 		{
 			return (long)Math.Min(Math.Min(status.AvailPhys, status.AvailPageFile), long.MaxValue);
+		}
+		if (OperatingSystem.IsLinux() && TryMemInfo(out MemInfo info))
+		{
+			return info.AvailableBytes;
+		}
+		if (OperatingSystem.IsMacOS() && MacMemory.TryAvailable(out long available))
+		{
+			return available;
 		}
 		return PhysicalBytes() / 2;
 	}
@@ -99,6 +119,140 @@ public static class FrameMemory
 	{
 		status = new MemoryStatus { Length = (uint)Marshal.SizeOf<MemoryStatus>() };
 		return GlobalMemoryStatusEx(ref status);
+	}
+
+	/// <summary>The two numbers of Linux's <c>/proc/meminfo</c> this class needs, in bytes.</summary>
+	/// <param name="TotalBytes"><c>MemTotal</c>.</param>
+	/// <param name="AvailableBytes"><c>MemAvailable</c> (<c>MemFree</c> on a kernel before 3.14), and under strict overcommit no more than the commit left.</param>
+	internal readonly record struct MemInfo(long TotalBytes, long AvailableBytes);
+
+	/// <summary>Reads <c>/proc/meminfo</c> and the overcommit mode; false where either cannot be read or the file names no total.</summary>
+	[SupportedOSPlatform("linux")]
+	private static bool TryMemInfo(out MemInfo info)
+	{
+		try
+		{
+			bool strict = File.Exists(OvercommitPath) && File.ReadAllText(OvercommitPath).Trim() == "2";
+			return ParseMemInfo(File.ReadAllText(MemInfoPath), strict, out info);
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			info = default;
+			return false;
+		}
+	}
+
+	private const string MemInfoPath = "/proc/meminfo";
+
+	private const string OvercommitPath = "/proc/sys/vm/overcommit_memory";
+
+	/// <summary>
+	/// Reads the numbers out of the text of <c>/proc/meminfo</c> (lines of <c>Name:   12345 kB</c>): the total from
+	/// <c>MemTotal</c>, the available from <c>MemAvailable</c>, or <c>MemFree</c> where a kernel before 3.14 has none,
+	/// and with <paramref name="strictOvercommit"/> no more than <c>CommitLimit</c> less <c>Committed_AS</c>, never
+	/// negative. False without a total. Exact for the harness.
+	/// </summary>
+	internal static bool ParseMemInfo(string text, bool strictOvercommit, out MemInfo info)
+	{
+		var values = new Dictionary<string, long>(StringComparer.Ordinal);
+		foreach (string line in text.Split('\n'))
+		{
+			int colon = line.IndexOf(':');
+			if (colon <= 0)
+			{
+				continue;
+			}
+			ReadOnlySpan<char> rest = line.AsSpan(colon + 1).Trim();
+			int end = rest.IndexOf(' ');
+			ReadOnlySpan<char> number = end < 0 ? rest : rest[..end];
+			if (long.TryParse(number, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long kilobytes))
+			{
+				// every line of the file is in kB but the counts (HugePages_*), which name no unit and are not asked for
+				values[line[..colon]] = kilobytes << 10;
+			}
+		}
+		if (!values.TryGetValue("MemTotal", out long total))
+		{
+			info = default;
+			return false;
+		}
+		long available = values.TryGetValue("MemAvailable", out long memAvailable) ? memAvailable : values.GetValueOrDefault("MemFree");
+		if (strictOvercommit && values.TryGetValue("CommitLimit", out long limit) && values.TryGetValue("Committed_AS", out long committed))
+		{
+			available = Math.Min(available, Math.Max(0, limit - committed));
+		}
+		info = new MemInfo(total, available);
+		return true;
+	}
+
+	/// <summary>
+	/// Bytes the system hands out without compressing or swapping, from Mach's page counts: the free pages, the
+	/// inactive ones (the file cache and what has not been touched for a while, reclaimed first), the speculative
+	/// ones (read ahead, as good as free) and the purgeable ones, times the page size. Exact for the harness.
+	/// </summary>
+	internal static long AvailableFromPages(long free, long inactive, long speculative, long purgeable, long pageSize)
+		=> (free + inactive + speculative + purgeable) * pageSize;
+
+	/// <summary>Mach's virtual memory statistics on macOS: <c>host_statistics64</c> with <c>HOST_VM_INFO64</c>, as <c>vm_stat</c> reads them.</summary>
+	[SupportedOSPlatform("macos")]
+	private static class MacMemory
+	{
+		private const int HostVmInfo64 = 4;
+
+		/// <summary><c>HOST_VM_INFO64_COUNT</c>: the structure's size in 32-bit integers.</summary>
+		private const uint HostVmInfo64Count = 38;
+
+		public static bool TryAvailable(out long bytes)
+		{
+			var statistics = new VmStatistics64();
+			uint count = HostVmInfo64Count;
+			if (host_statistics64(mach_host_self(), HostVmInfo64, ref statistics, ref count) != 0)
+			{
+				bytes = 0;
+				return false;
+			}
+			bytes = AvailableFromPages(statistics.FreeCount, statistics.InactiveCount, statistics.SpeculativeCount, statistics.PurgeableCount, getpagesize());
+			return true;
+		}
+
+		/// <summary>The <c>vm_statistics64</c> structure of <c>mach/vm_statistics.h</c>, 152 bytes: counts of pages as 32-bit integers, event counts as 64-bit ones.</summary>
+		[StructLayout(LayoutKind.Sequential)]
+		private struct VmStatistics64
+		{
+			public uint FreeCount;
+			public uint ActiveCount;
+			public uint InactiveCount;
+			public uint WireCount;
+			public ulong ZeroFillCount;
+			public ulong Reactivations;
+			public ulong PageIns;
+			public ulong PageOuts;
+			public ulong Faults;
+			public ulong CowFaults;
+			public ulong Lookups;
+			public ulong Hits;
+			public ulong Purges;
+			public uint PurgeableCount;
+			public uint SpeculativeCount;
+			public ulong Decompressions;
+			public ulong Compressions;
+			public ulong SwapIns;
+			public ulong SwapOuts;
+			public uint CompressorPageCount;
+			public uint ThrottledCount;
+			public uint ExternalPageCount;
+			public uint InternalPageCount;
+			public ulong TotalUncompressedPagesInCompressor;
+		}
+
+		[DllImport("libc", ExactSpelling = true)]
+		private static extern uint mach_host_self();
+
+		[DllImport("libc", ExactSpelling = true)]
+		private static extern int host_statistics64(uint host, int flavor, ref VmStatistics64 info, ref uint count);
+
+		[DllImport("libc", ExactSpelling = true)]
+		private static extern int getpagesize();
 	}
 
 	/// <summary>The <c>MEMORYSTATUSEX</c> structure of <c>kernel32</c>.</summary>

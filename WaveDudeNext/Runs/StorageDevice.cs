@@ -17,6 +17,7 @@
 
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Microsoft.Win32.SafeHandles;
 
 namespace WaveDudeNext.Runs;
@@ -52,12 +53,19 @@ public static class StorageDevice
 
 	/// <summary>
 	/// Whether the volume holding <paramref name="path"/> incurs a seek penalty: true for a hard disk, or a volume with
-	/// one among its disks; false for solid-state drives; null when the question cannot be answered (not Windows, a
-	/// relative or UNC path, a volume and disks that do not report the property). The path need not exist; only its
-	/// drive letter is used.
+	/// one among its disks; false for solid-state drives; null when the question cannot be answered (a relative or UNC
+	/// path, a volume and disks that do not report the property on Windows; on Linux a mount whose block device has
+	/// no queue in sysfs, a network or a multi-device file system; macOS, where the answer would need IOKit and the
+	/// machines have solid-state drives). The path need not exist; on Windows only its drive letter is used, on Linux
+	/// the mount it lies on (<c>/proc/self/mountinfo</c>, the device's <c>queue/rotational</c> under
+	/// <c>/sys/dev/block</c>, a partition's at its disk; 2026-11-12, the Linux port).
 	/// </summary>
 	public static bool? IncursSeekPenalty(string path)
 	{
+		if (OperatingSystem.IsLinux())
+		{
+			return LinuxSeekPenalty(path);
+		}
 		if (!OperatingSystem.IsWindows())
 		{
 			return null;
@@ -100,6 +108,129 @@ public static class StorageDevice
 		}
 		return result;
 	}
+
+	/// <summary>
+	/// The volume holding <paramref name="path"/> for a log line: the drive letter on Windows ("C:"), the mount point on
+	/// Linux ("/home"), else the path's root; the path itself where it has no root (2026-11-12, from <c>MachineFacts</c>).
+	/// </summary>
+	public static string VolumeOf(string path)
+	{
+		if (OperatingSystem.IsLinux())
+		{
+			try
+			{
+				if (MountOf(File.ReadAllText(MountInfoPath), Path.GetFullPath(path)) is { } mount)
+				{
+					return mount.MountPoint;
+				}
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+			{
+				// the root below serves
+			}
+		}
+		string root = Path.GetPathRoot(path) ?? path;
+		return OperatingSystem.IsWindows() ? root.TrimEnd('\\') : root;
+	}
+
+	private const string MountInfoPath = "/proc/self/mountinfo";
+
+	private const string SysBlockPath = "/sys/dev/block";
+
+	/// <summary>The mount holding a path on Linux: its mount point and its device's major:minor number, read from <c>/proc/self/mountinfo</c>.</summary>
+	internal readonly record struct Mount(string MountPoint, string Device);
+
+	/// <summary>
+	/// The seek penalty of the block device beneath <paramref name="path"/>'s mount: the device's <c>queue/rotational</c> in
+	/// sysfs (a disk's own, a partition's at its disk, a mapper device's own); null where the mount names no block device
+	/// with a queue (a network or a multi-device file system, a kernel without the attribute).
+	/// </summary>
+	[SupportedOSPlatform("linux")]
+	private static bool? LinuxSeekPenalty(string path)
+	{
+		try
+		{
+			if (MountOf(File.ReadAllText(MountInfoPath), Path.GetFullPath(path)) is not { } mount)
+			{
+				return null;
+			}
+			string? queue = QueueDirectory(Path.Combine(SysBlockPath, mount.Device));
+			return queue == null ? null : ParseRotational(File.ReadAllText(Path.Combine(queue, "rotational")));
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			return null;
+		}
+	}
+
+	/// <summary>The <c>queue</c> directory of a block device's sysfs entry (a symbolic link under <c>/sys/dev/block</c>): the entry's own, or its parent's for a partition; null without one.</summary>
+	[SupportedOSPlatform("linux")]
+	private static string? QueueDirectory(string entry)
+	{
+		if (!Directory.Exists(entry))
+		{
+			return null;
+		}
+		string device = Directory.ResolveLinkTarget(entry, returnFinalTarget: true)?.FullName ?? entry;
+		string own = Path.Combine(device, "queue");
+		if (Directory.Exists(own))
+		{
+			return own;
+		}
+		string? parent = Path.GetDirectoryName(device);
+		return parent != null && Directory.Exists(Path.Combine(parent, "queue")) ? Path.Combine(parent, "queue") : null;
+	}
+
+	/// <summary>
+	/// The mount holding <paramref name="fullPath"/> in the text of <c>/proc/self/mountinfo</c>: the line whose mount
+	/// point (the fifth field, spaces and the like escaped as octal) is the longest that holds the path; null when none
+	/// does. Exact for the harness.
+	/// </summary>
+	internal static Mount? MountOf(string mountInfo, string fullPath)
+	{
+		Mount? best = null;
+		foreach (string line in mountInfo.Split('\n'))
+		{
+			string[] fields = line.Split(' ');
+			if (fields.Length < 5)
+			{
+				continue;
+			}
+			string point = Unescape(fields[4]);
+			bool holds = point == "/" ? fullPath.StartsWith('/') : fullPath == point || fullPath.StartsWith(point + "/", StringComparison.Ordinal);
+			if (holds && (best == null || point.Length > best.Value.MountPoint.Length))
+			{
+				best = new Mount(point, fields[2]);
+			}
+		}
+		return best;
+	}
+
+	/// <summary>A mountinfo field with its octal escapes resolved: <c>\040</c> a space, <c>\011</c> a tab, <c>\012</c> a newline, <c>\134</c> a backslash.</summary>
+	private static string Unescape(string field)
+	{
+		if (!field.Contains('\\'))
+		{
+			return field;
+		}
+		var text = new System.Text.StringBuilder(field.Length);
+		for (int i = 0; i < field.Length; i++)
+		{
+			if (field[i] == '\\' && i + 3 < field.Length && char.IsDigit(field[i + 1]) && char.IsDigit(field[i + 2]) && char.IsDigit(field[i + 3]))
+			{
+				text.Append((char)Convert.ToInt32(field.Substring(i + 1, 3), 8));
+				i += 3;
+			}
+			else
+			{
+				text.Append(field[i]);
+			}
+		}
+		return text.ToString();
+	}
+
+	/// <summary>The text of a <c>queue/rotational</c> attribute: "1" a seek penalty, "0" none, anything else unknown. Exact for the harness.</summary>
+	internal static bool? ParseRotational(string text) => text.Trim() switch { "1" => true, "0" => false, _ => null };
 
 	/// <summary>Opens a volume or disk device for queries alone (no access right); the handle is invalid when it cannot be opened.</summary>
 	private static SafeFileHandle Open(string device) => CreateFileW(device, 0U, FileShareRead | FileShareWrite, IntPtr.Zero, OpenExisting, 0U, IntPtr.Zero);

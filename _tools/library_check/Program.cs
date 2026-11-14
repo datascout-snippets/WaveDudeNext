@@ -1808,6 +1808,19 @@ internal static class Program
 			Check(store.RamFrames == 3 && !store.HasFile && !File.Exists(path) && store.FileBytes == 0 && store.FirstSpilledFrame == 3, "a run within the budget creates no file");
 		}
 		// Auto (0) is what is free minus the margin; a percentage caps that
+		// the Linux and macOS readings on fixed inputs (2026-11-12): /proc/meminfo's text, the overcommit rule, Mach's pages,
+		// a mount table with an escaped mount point and nested mounts, the rotational attribute
+		const string memInfo = "MemTotal:       16318832 kB\nMemFree:         1234567 kB\nMemAvailable:   12000000 kB\nBuffers:          100000 kB\nCommitLimit:    20000000 kB\nCommitted_AS:   15000000 kB\nHugePages_Total:       0\n";
+		Check(FrameMemory.ParseMemInfo(memInfo, false, out FrameMemory.MemInfo lax) && lax.TotalBytes == 16318832L << 10 && lax.AvailableBytes == 12000000L << 10, "meminfo: MemTotal and MemAvailable in bytes");
+		Check(FrameMemory.ParseMemInfo(memInfo, true, out FrameMemory.MemInfo strict) && strict.AvailableBytes == 5000000L << 10, "meminfo: under strict overcommit the commit left caps the available (20,000,000 - 15,000,000 kB)");
+		Check(FrameMemory.ParseMemInfo("MemTotal: 8000000 kB\nMemFree: 3000000 kB\n", false, out FrameMemory.MemInfo old) && old.AvailableBytes == 3000000L << 10, "meminfo: MemFree stands in for MemAvailable on an old kernel");
+		Check(!FrameMemory.ParseMemInfo("MemFree: 3000000 kB\n", false, out _), "meminfo: no total, no reading");
+		Check(FrameMemory.AvailableFromPages(1000, 2000, 300, 50, 16384) == 3350L * 16384, "Mach pages: free, inactive, speculative and purgeable times the page size");
+		const string mountInfo = "22 1 8:2 / / rw,relatime shared:1 - ext4 /dev/sda2 rw\n40 22 8:3 / /home rw,relatime shared:2 - ext4 /dev/sda3 rw\n41 40 0:45 / /home/user/my\\040files rw - btrfs /dev/sdb1 rw\n";
+		Check(StorageDevice.MountOf(mountInfo, "/home/user/.local/share/WaveDudeNext/cache") is { MountPoint: "/home", Device: "8:3" }, "mountinfo: the longest mount point holding the path, with its device number");
+		Check(StorageDevice.MountOf(mountInfo, "/home/user/my files/x") is { MountPoint: "/home/user/my files", Device: "0:45" }, "mountinfo: an escaped mount point");
+		Check(StorageDevice.MountOf(mountInfo, "/homework") is { MountPoint: "/", Device: "8:2" }, "mountinfo: a prefix is not a mount point without its slash");
+		Check(StorageDevice.ParseRotational("1\n") == true && StorageDevice.ParseRotational("0") == false && StorageDevice.ParseRotational("") == null, "sysfs rotational: 1, 0, unknown");
 		long automatic = FrameMemory.Budget(FrameMemory.Automatic);
 		Check(FrameMemory.PhysicalBytes() > 1L << 30 && FrameMemory.AvailableBytes() <= FrameMemory.PhysicalBytes() && FrameMemory.Budget(50) <= FrameMemory.PhysicalBytes() / 2
 			&& Math.Abs(automatic - Math.Max(0, FrameMemory.AvailableBytes() - FrameMemory.Margin)) < 512L << 20 && FrameMemory.Budget(50) <= automatic + (512L << 20) && FrameMemory.Budget(1) <= FrameMemory.PhysicalBytes() / 100,
