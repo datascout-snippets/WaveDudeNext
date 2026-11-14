@@ -1006,6 +1006,42 @@ internal static class Program
 		IWaveEngine fallback = WaveEngineFactory.Create(scene, new EngineOptions(1.0, 1.0, false, false, 10.0, 1.0), false, null, out string note);
 		Check(fallback is WaveSimulator && note == "" && fallback.IntensityData == null, "factory gives the CPU engine without intensity when asked");
 		(fallback as IDisposable)?.Dispose();
+		// a head's own GPU engine stands in for OpenCL where it is set (the browser head's WebGPU engine)
+		var plain = new EngineOptions(1.0, 1.0, false, false, 10.0, 1.0);
+		var own = new WaveSimulator(scene, plain, null);
+		int asked = 0;
+		try
+		{
+			WaveEngineFactory.PlatformGpu = (SceneData s, EngineOptions o, IReadOnlyList<Emitter>? e, out string problems) =>
+			{
+				asked++;
+				problems = "";
+				return own;
+			};
+			IWaveEngine given = WaveEngineFactory.Create(scene, plain, true, null, out string givenNote);
+			IWaveEngine notAsked = WaveEngineFactory.Create(scene, plain, false, null, out string notAskedNote);
+			Check(ReferenceEquals(given, own) && givenNote == "" && asked == 1 && notAsked is WaveSimulator && !ReferenceEquals(notAsked, own) && notAskedNote == "",
+				"factory: a platform's GPU engine is given when the GPU is asked for, and not asked when it is not");
+			(notAsked as IDisposable)?.Dispose();
+			WaveEngineFactory.PlatformGpu = (SceneData s, EngineOptions o, IReadOnlyList<Emitter>? e, out string problems) =>
+			{
+				problems = "no such card";
+				return null;
+			};
+			IWaveEngine refused = WaveEngineFactory.Create(scene, plain, true, null, out string refusedNote);
+			Check(refused is WaveSimulator && !ReferenceEquals(refused, own) && refusedNote == "GPU not used: no such card",
+				"factory: a platform's GPU engine that cannot be made leaves the CPU engine and its reason in the note (" + refusedNote + ")");
+			(refused as IDisposable)?.Dispose();
+			WaveEngineFactory.PlatformGpu = (SceneData s, EngineOptions o, IReadOnlyList<Emitter>? e, out string problems) => throw new InvalidOperationException("the card fell over");
+			IWaveEngine thrown = WaveEngineFactory.Create(scene, plain, true, null, out string thrownNote);
+			Check(thrown is WaveSimulator && thrownNote == "GPU not used: the card fell over", "factory: a platform's GPU engine that throws leaves the CPU engine and the error's words (" + thrownNote + ")");
+			(thrown as IDisposable)?.Dispose();
+		}
+		finally
+		{
+			WaveEngineFactory.PlatformGpu = null;
+			own.Dispose();
+		}
 	}
 
 	private static float MaxDiff(ReadOnlySpan<float> padded, int stride, int w, int h, ReadOnlySpan<Half> plane)

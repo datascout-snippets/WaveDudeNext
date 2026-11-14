@@ -23,6 +23,20 @@ namespace WaveDudeNext.Engine;
 /// </summary>
 public static class WaveEngineFactory
 {
+	/// <summary>A head's own GPU engine for <see cref="PlatformGpu"/>: the engine, or null with the reason in <paramref name="problems"/>.</summary>
+	/// <param name="scene">As <see cref="Create"/>'s.</param>
+	/// <param name="options">As <see cref="Create"/>'s.</param>
+	/// <param name="emitters">As <see cref="Create"/>'s.</param>
+	/// <param name="problems">"" on success, otherwise why the engine could not be made.</param>
+	public delegate IWaveEngine? PlatformGpuEngine(SceneData scene, EngineOptions options, IReadOnlyList<Emitter>? emitters, out string problems);
+
+	/// <summary>
+	/// The GPU engine of a platform that has no OpenCL, tried in its place when the GPU is asked for (2026-11-13: the
+	/// browser head sets its WebGPU engine here at its start, so the library carries no browser code). Null, the
+	/// default, leaves the OpenCL engine. Set once, before the first run; read on the runs' workers.
+	/// </summary>
+	public static PlatformGpuEngine? PlatformGpu { get; set; }
+
 	/// <summary>
 	/// Creates the engine for <paramref name="scene"/>. With <paramref name="preferGpu"/> set it first tries
 	/// <see cref="GpuWaveSimulator.TryCreate"/>, translating the usual OpenCL loader failures (none of the operating
@@ -48,10 +62,21 @@ public static class WaveEngineFactory
 			string gpuMessage;
 			try
 			{
-				GpuWaveSimulator? gpu = GpuWaveSimulator.TryCreate(scene, options, emitters, out gpuMessage);
-				if (gpu != null)
+				if (PlatformGpu is { } platform)
 				{
-					return gpu;
+					// the head's own engine stands in for OpenCL, which this platform does not have
+					if (platform(scene, options, emitters, out gpuMessage) is { } engine)
+					{
+						return engine;
+					}
+				}
+				else
+				{
+					GpuWaveSimulator? gpu = GpuWaveSimulator.TryCreate(scene, options, emitters, out gpuMessage);
+					if (gpu != null)
+					{
+						return gpu;
+					}
 				}
 			}
 			catch (DllNotFoundException)

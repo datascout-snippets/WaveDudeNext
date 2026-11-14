@@ -205,7 +205,8 @@ Project (Model/) --RunSpec.Create--> RunSpec (immutable snapshot); the scene pix
    SceneComposer.Load (WaveDudeNext.UI): the decoded image (or a blank canvas) with the enabled optical parts painted into red by
    PartPainter (Parts/), cached by (image, parts version, size, background) so an unchanged scene is the same reference
 StartRun: memory budget -> DiscardRun (returns the old store's release task) -> FrameStore -> SimulationRun
-SimulationRun: stepping loop + writer threads; IWaveEngine (WaveSimulator CPU | GpuWaveSimulator OpenCL);
+SimulationRun: stepping loop + writer threads; IWaveEngine (WaveSimulator CPU | GpuWaveSimulator OpenCL | the browser
+   head's WebGpuWaveSimulator, through WaveEngineFactory.PlatformGpu);
    CaptureFrame/AwaitFrame -> FrameStore.Write; one heartbeat post (<= 30/s) at Background priority; final post sets
    FrameCount, then State
 ScratchRunner: one kept engine; "frame k of the project as it is now" from step 0, probes sampled; one request computes

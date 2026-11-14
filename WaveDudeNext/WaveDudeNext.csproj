@@ -29,6 +29,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="LibraryCheck" />
+    <!-- the browser head's GPU engine lives there, with the page's scripts it drives, and sets what an engine sets on a
+         snapshot (2026-11-13) -->
+    <InternalsVisibleTo Include="WaveDudeNext.Browser" />
   </ItemGroup>
 
   <ItemGroup>

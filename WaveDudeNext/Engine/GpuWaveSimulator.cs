@@ -15,7 +15,6 @@
 // version. It is distributed WITHOUT ANY WARRANTY. See the LICENSE.md file or
 // <https://www.gnu.org/licenses/>.
 
-using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -178,17 +177,7 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 	{
 		// object sources: keep only the elements whose position is inside the canvas (a randomized composite
 		// element can fall outside), same filtering as the CPU engine (WaveSimulator)
-		var sourcesInScene = new List<Emitter>();
-		if (emitters != null)
-		{
-			foreach (Emitter source in emitters)
-			{
-				if (source.X >= 0 && source.X < _canvasWidth && source.Y >= 0 && source.Y < _canvasHeight)
-				{
-					sourcesInScene.Add(source);
-				}
-			}
-		}
+		List<Emitter> sourcesInScene = GpuTables.InCanvas(emitters, _canvasWidth, _canvasHeight);
 		// the tables and kernels of the previous emitters go; the program and the scene stay
 		Quietly(() => OpenClApi.clFinish(_queue));
 		_emitters.Release();
@@ -200,7 +189,7 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 			BuildObjectSourceKernels(sourcesInScene);
 		}
 		// the intensity's averaging time constant follows the lowest source level in use (image or object)
-		float intensityAlpha = WaveSimulator.IntensityRetention(_timeDecay, WaveSimulator.LowestSourceLevel(_levelUsed, sourcesInScene));
+		float intensityAlpha = GpuTables.IntensityAlpha(_timeDecay, _levelUsed, sourcesInScene);
 		for (int k = 0; k <= 1; k++)
 		{
 			SetFloat(_stepKernel[k], 12U, intensityAlpha);
@@ -403,7 +392,7 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 		{
 			return false;
 		}
-		SceneTables maps = SceneMaps(scene);
+		GpuTables.SceneTables maps = GpuTables.Scene(scene, _fourthOrder);
 		if (maps.DTable.Length > _dTableCapacity)
 		{
 			// more distinct damping values than the table buffer holds: a rebuild sizes it
@@ -423,7 +412,7 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 				SetFloat(_edgeKernel[k], 7U, maps.C2Mult);
 			}
 		}
-		(int[] indices, int[] levels) = SourceTables(scene);
+		(int[] indices, int[] levels) = GpuTables.ImageSources(scene, _levelUsed);
 		if (_sourceCount > 0)
 		{
 			OpenClApi.Check(OpenClApi.clEnqueueWriteBufferInt(_queue, _sourceIndexBuffer, 1U, IntPtr.Zero, new IntPtr((long)_sourceCount * 4L), indices, 0U, IntPtr.Zero, IntPtr.Zero), "clEnqueueWriteBuffer (source indices)");
@@ -433,87 +422,6 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 		Reset();
 		Logger.Debug("Scene replaced on {Device}: {Stencil}", _device.Name, WaveSimulator.StencilText(_fourthOrder, _subSteps));
 		return true;
-	}
-
-	/// <summary>
-	/// The scene's per-cell maps for the card: the kernel is bound by the card's memory bandwidth, so a cell carries a byte
-	/// index into the table of the scene's distinct c² values (at most 256: they come from the image's red levels) and a
-	/// 16-bit index into the table of its distinct damping values (a few hundred: the blue levels and the rim's depths),
-	/// 3 bytes instead of 8 (2026-11-03, the user's choice); the tables hold the very floats the CPU engine computes
-	/// with, so the arithmetic is unchanged. In the padded layout (a border of one cell, like the CPU engine), with the
-	/// sub-steps and their corrections: sub-stepping keeps the 4th-order stencil stable without changing the physical
-	/// wave speed or damping, and stays at 1 unless the stencil is in use and this scene's highest c² needs it. The
-	/// damping table is pre-scaled to its 1 / sub-steps-th root (unchanged at 1 sub-step), as the CPU engine's cells are,
-	/// and the c² multiplier is 1 / sub-steps², exactly 1f at one sub-step (a bit-for-bit no-op multiply in the kernel).
-	/// </summary>
-	/// <exception cref="InvalidOperationException">The scene has more than 256 distinct c² values.</exception>
-	private SceneTables SceneMaps(SceneData scene)
-	{
-		float[] c2 = new float[_cells];
-		float[] damping = new float[_cells];
-		for (int y = 0; y < _height; y++)
-		{
-			Array.Copy(scene.C2, y * _width, c2, (y + 1) * _stride + 1, _width);
-			Array.Copy(scene.D, y * _width, damping, (y + 1) * _stride + 1, _width);
-		}
-		float[] c2Table = Distinct(c2);
-		float[] dTable = Distinct(damping);
-		if (c2Table.Length > 256)
-		{
-			throw new InvalidOperationException("the scene has more than 256 distinct refractive indices, which a byte index cannot address");
-		}
-		byte[] c2Index = new byte[_cells];
-		ushort[] dIndex = new ushort[_cells];
-		Parallel.For(0, _height + 2, row =>
-		{
-			int start = row * _stride;
-			for (int i = start; i < start + _stride; i++)
-			{
-				c2Index[i] = (byte)Array.BinarySearch(c2Table, c2[i]);
-				dIndex[i] = (ushort)Array.BinarySearch(dTable, damping[i]);
-			}
-		});
-		int subSteps = _fourthOrder ? WaveSimulator.ComputeSubSteps(WaveSimulator.MaxOf(c2Table)) : 1;
-		float c2Mult = 1f;
-		if (subSteps > 1)
-		{
-			// Damping is applied once per sub-step, so take the sub-step root to keep the per-step decay unchanged.
-			double exponent = 1.0 / subSteps;
-			for (int i = 0; i < dTable.Length; i++)
-			{
-				dTable[i] = (float)Math.Pow(dTable[i], exponent);
-			}
-			// A sub-step is 1/subSteps long, so c²·dt² shrinks by 1/subSteps².
-			c2Mult = 1f / (subSteps * subSteps);
-		}
-		return new SceneTables(c2Index, c2Table, dIndex, dTable, subSteps, c2Mult);
-	}
-
-	/// <summary>The scene's maps as the card takes them: per-cell indices, the tables they address, the sub-steps and the c² multiplier (<see cref="SceneMaps"/>).</summary>
-	private sealed record SceneTables(byte[] C2Index, float[] C2Table, ushort[] DIndex, float[] DTable, int SubSteps, float C2Mult);
-
-	/// <summary>The distinct values of <paramref name="values"/>, sorted, so <see cref="Array.BinarySearch(Array, object)"/> finds a value's index; gathered on every core.</summary>
-	private static float[] Distinct(float[] values)
-	{
-		var all = new HashSet<float>();
-		var gate = new Lock();
-		Parallel.ForEach(Partitioner.Create(0, values.Length, 1 << 16), () => new HashSet<float>(), (range, _, local) =>
-		{
-			for (int i = range.Item1; i < range.Item2; i++)
-			{
-				local.Add(values[i]);
-			}
-			return local;
-		}, local =>
-		{
-			lock (gate)
-			{
-				all.UnionWith(local);
-			}
-		});
-		float[] table = [.. all];
-		Array.Sort(table);
-		return table;
 	}
 
 	/// <summary>Blocking upload of a byte array into a device buffer.</summary>
@@ -544,25 +452,10 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 		}
 	}
 
-	/// <summary>The image sources (the green channel of the scene image) as the kernel's tables, cell index and level per source, noting the levels in use in <see cref="_levelUsed"/> afresh.</summary>
-	private (int[] Indices, int[] Levels) SourceTables(SceneData scene)
-	{
-		int[] indices = new int[_sourceCount];
-		int[] levels = new int[_sourceCount];
-		Array.Clear(_levelUsed);
-		for (int i = 0; i < _sourceCount; i++)
-		{
-			indices[i] = (scene.SourceY[i] + 1) * _stride + scene.SourceX[i] + 1;
-			levels[i] = scene.SourceLevel[i];
-			_levelUsed[scene.SourceLevel[i]] = true;
-		}
-		return (indices, levels);
-	}
-
 	/// <summary>
 	/// Creates the context and queue, compiles <see cref="KernelSource"/>, uploads every buffer for the scene
 	/// and binds the kernel arguments. Mirrors the <see cref="WaveSimulator"/> constructor: c² and damping become
-	/// index maps and tables in the padded layout (<see cref="SceneMaps"/>), the sub-step count and the per-sub-step
+	/// index maps and tables in the padded layout (<see cref="GpuTables.Scene"/>), the sub-step count and the per-sub-step
 	/// damping / c² corrections are derived for the 4th-order stencil, the sources are indexed, and the intensity
 	/// averaging constant is set from the lowest source level in use. When intensity is not tracked the two intensity
 	/// buffers are 1-float dummies so the kernel arguments are still valid. The kernel arguments that change per step
@@ -590,7 +483,7 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 		OpenClApi.Check(err, "clCreateCommandQueue (transfer)");
 		_scene.Program = BuildProgram(KernelSource(use4thOrderLaplacian), "the program for the GPU");
 
-		SceneTables maps = SceneMaps(scene);
+		GpuTables.SceneTables maps = GpuTables.Scene(scene, _fourthOrder);
 		_subSteps = maps.SubSteps;
 		float c2Mult = maps.C2Mult;
 		_c2IndexBuffer = CreateBuffer(maps.C2Index, _scene);
@@ -616,18 +509,13 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 		IntPtr intensityStage1Buffer = _intensityStage1Buffer = CreateBuffer(intensityInit, _scene);
 
 		// the level-to-frequency table (level 0-255 -> frequency), shared by the image sources and the object sources
-		float[] frequencies = new float[256];
-		for (int level = 0; level <= 255; level++)
-		{
-			frequencies[level] = (float)(level / 255.0 * 0.5 * sourceFrequencyScale);
-		}
-		_frequencyBuffer = CreateBuffer(frequencies, _scene);
-		(int[] indices, int[] levels) = SourceTables(scene);
+		_frequencyBuffer = CreateBuffer(GpuTables.Frequencies(sourceFrequencyScale), _scene);
+		(int[] indices, int[] levels) = GpuTables.ImageSources(scene, _levelUsed);
 		// the intensity's averaging time constant scales inversely with the frequency of the slowest active source
 		// (image or object; a level of 0 means "no source" and is excluded) - see WaveSimulator's identical
 		// computation (CPU engine) and Simulation.TimeDecay's comment for why. This exponential-average decay
 		// factor replaces the old fixed 0.98f in the kernel; SetEmitters re-derives it with the object sources.
-		float intensityAlpha = WaveSimulator.IntensityRetention(timeDecayFactor, WaveSimulator.LowestSourceLevel(_levelUsed, []));
+		float intensityAlpha = GpuTables.IntensityAlpha(timeDecayFactor, _levelUsed, []);
 
 		// Kernel k reads field[k] and writes field[1 - k]; argument 4 (sources) / 11 (object sources) is the
 		// time and argument 8 of wave_step the track flag, both set per launch in AdvanceOneStep.
@@ -698,38 +586,21 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 	private void BuildObjectSourceKernels(List<Emitter> objectSources)
 	{
 		int n = _objSourceCount;
-		int[] index = new int[n], mode = new int[n], pulseShape = new int[n];
-		int[] onWidth = new int[n], offWidth = new int[n], detachStep = new int[n];
-		int[] offWidthBase = new int[n], randomizeOffWidthAmount = new int[n], rngState = new int[n];
-		float[] omega = new float[n], amplitude = new float[n], phase = new float[n], cycleAnchor = new float[n];
-		for (int i = 0; i < n; i++)
-		{
-			Emitter source = objectSources[i];
-			index[i] = (source.Y + 1 + _rim) * _stride + source.X + 1 + _rim;
-			omega[i] = (float)(source.Level / 255.0 * 0.5 * _sourceFrequencyScale);
-			amplitude[i] = (float)source.Amplitude;
-			phase[i] = (float)source.PhaseRadians;
-			mode[i] = source.Mode == SourceMode.Pulsed ? 1 : 0;
-			pulseShape[i] = source.PulseShape == PulseShape.SmoothedSquare ? 1 : 0;
-			onWidth[i] = source.OnWidthCycles;
-			offWidth[i] = source.OffWidthCycles;
-			detachStep[i] = source.DetachAfterStep;
-			offWidthBase[i] = source.OffWidthBase;
-			randomizeOffWidthAmount[i] = source.RandomizeOffWidthAmount;
-			// the per-element seed drawn from the project seed (never 0, see Emitter.FromSource); the kernel
-			// reinterprets it as uint, only the bits matter
-			rngState[i] = (int)source.RngSeed;
-		}
+		// the tables every GPU engine takes (GpuTables, 2026-11-13); the per-element seed is reinterpreted as uint by the kernel
+		GpuTables.EmitterTables tables = GpuTables.Emitters(objectSources, _rim, _stride, _sourceFrequencyScale);
+		int[] offWidth = tables.OffWidth, detachStep = tables.DetachStep;
+		int[] offWidthBase = tables.OffWidthBase, randomizeOffWidthAmount = tables.RandomizeOffWidthAmount, rngState = tables.RngState;
+		float[] cycleAnchor = tables.CycleAnchor;
 		// Buffer arguments by kernel argument index; 0 is the field (per kernel instance), 11 the time
 		// (per launch) and 12 the count (scalar), see the apply_object_sources signature.
 		IntPtr[] buffers = new IntPtr[17];
-		buffers[1] = CreateBuffer(index, _emitters);
-		buffers[2] = CreateBuffer(omega, _emitters);
-		buffers[3] = CreateBuffer(amplitude, _emitters);
-		buffers[4] = CreateBuffer(phase, _emitters);
-		buffers[5] = CreateBuffer(mode, _emitters);
-		buffers[6] = CreateBuffer(pulseShape, _emitters);
-		buffers[7] = CreateBuffer(onWidth, _emitters);
+		buffers[1] = CreateBuffer(tables.Index, _emitters);
+		buffers[2] = CreateBuffer(tables.Omega, _emitters);
+		buffers[3] = CreateBuffer(tables.Amplitude, _emitters);
+		buffers[4] = CreateBuffer(tables.Phase, _emitters);
+		buffers[5] = CreateBuffer(tables.Mode, _emitters);
+		buffers[6] = CreateBuffer(tables.PulseShape, _emitters);
+		buffers[7] = CreateBuffer(tables.OnWidth, _emitters);
 		// the off-width currently in effect for each element, in cycles; read-write on the GPU (see
 		// apply_object_sources) since an element with RandomizeOffWidthAmount > 0 redraws it there each time it
 		// completes a cycle
@@ -1553,32 +1424,9 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 	private void SetUpSeriesProbes(ProbeSampler sampler)
 	{
 		int count = sampler.Count;
-		int totalPixels = 0;
-		for (int i = 0; i < count; i++)
-		{
-			if (!sampler.IsProfile[i])
-			{
-				totalPixels += sampler.Pixels[i].Length;
-			}
-		}
-		int[] pixels = new int[Math.Max(totalPixels, 1)];
-		int[] info = new int[count * 4];
-		int offset = 0;
-		for (int i = 0; i < count; i++)
-		{
-			if (!sampler.IsProfile[i])
-			{
-				int[] probePixels = sampler.Pixels[i];
-				Array.Copy(probePixels, 0, pixels, offset, probePixels.Length);
-				info[i * 4] = offset;
-				info[i * 4 + 1] = probePixels.Length;
-				info[i * 4 + 2] = sampler.UseIntensity[i] ? 1 : 0;
-				info[i * 4 + 3] = 1;
-				offset += probePixels.Length;
-			}
-		}
-		IntPtr pixelBuffer = CreateBuffer(pixels, _probes);
-		IntPtr infoBuffer = CreateBuffer(info, _probes);
+		GpuTables.SeriesProbeTables tables = GpuTables.SeriesProbes(sampler);
+		IntPtr pixelBuffer = CreateBuffer(tables.Pixels, _probes);
+		IntPtr infoBuffer = CreateBuffer(tables.Info, _probes);
 		// Never uploaded: the kernel writes every row before ReadProbeHistory reads it.
 		_historyBuffer = CreateBuffer((long)ProbeRows * count * 4L, _probes);
 		for (int k = 0; k <= 1; k++)
@@ -1609,45 +1457,11 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 	/// </summary>
 	private void SetUpProfileProbes(ProbeSampler sampler)
 	{
-		int count = sampler.Count;
-		int totalPixels = 0;
-		for (int i = 0; i < count; i++)
-		{
-			if (sampler.IsProfile[i])
-			{
-				totalPixels += sampler.Pixels[i].Length;
-			}
-		}
-		int[] pixels = new int[totalPixels];
-		int[] modes = new int[totalPixels];
-		int[] startFlags = new int[totalPixels];
-		int[] startSteps = new int[totalPixels];
-		_profileStart = new int[count];
-		int offset = 0;
-		for (int i = 0; i < count; i++)
-		{
-			_profileStart[i] = offset;
-			if (!sampler.IsProfile[i])
-			{
-				continue;
-			}
-			int[] probePixels = sampler.Pixels[i];
-			int mode = sampler.Integrate[i] ? 2 : (sampler.UseIntensity[i] ? 1 : 0);
-			if (mode == 2)
-			{
-				_profileIntegrates = true;
-			}
-			int startFlag = sampler.UseStartAfterStep[i] ? 1 : 0;
-			int startStep = sampler.StartAfterStep[i];
-			for (int k = 0; k < probePixels.Length; k++)
-			{
-				pixels[offset + k] = probePixels[k];
-				modes[offset + k] = mode;
-				startFlags[offset + k] = startFlag;
-				startSteps[offset + k] = startStep;
-			}
-			offset += probePixels.Length;
-		}
+		GpuTables.ProfileProbeTables tables = GpuTables.ProfileProbes(sampler);
+		int[] pixels = tables.Pixels, modes = tables.Modes, startFlags = tables.StartFlags, startSteps = tables.StartSteps;
+		int totalPixels = pixels.Length;
+		_profileStart = tables.ProfileStart;
+		_profileIntegrates = tables.Integrates;
 		_profileCount = totalPixels;
 		IntPtr pixelBuffer = CreateBuffer(pixels, _probes);
 		IntPtr modeBuffer = CreateBuffer(modes, _probes);
@@ -1943,7 +1757,7 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 	private readonly List<FrameSnapshot> _hostSnapshots = [];
 
 	/// <summary>Rows (steps) the probe history buffer holds before it must be read back to the host.</summary>
-	private const int ProbeRows = 2048;
+	private const int ProbeRows = GpuTables.ProbeRows;
 
 	/// <summary>The probe program (<see cref="ProbeKernelSource"/>), built on the first <see cref="SetProbes"/> and kept for the engine's life; its kernels and buffers live in <see cref="_probes"/>.</summary>
 	private IntPtr _probeProgram;
@@ -2005,7 +1819,7 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 	/// <summary>The level-to-frequency table (256 floats), shared by the image and the object sources.</summary>
 	private IntPtr _frequencyBuffer;
 
-	/// <summary>Per-cell indices (a byte, a ushort) into the tables of the scene's distinct c² and pre-scaled damping values, bound to the step and edge kernels (<see cref="SceneMaps"/>); refilled by <see cref="TryReplaceScene"/>.</summary>
+	/// <summary>Per-cell indices (a byte, a ushort) into the tables of the scene's distinct c² and pre-scaled damping values, bound to the step and edge kernels (<see cref="GpuTables.Scene"/>); refilled by <see cref="TryReplaceScene"/>.</summary>
 	private IntPtr _c2IndexBuffer;
 	private IntPtr _dIndexBuffer;
 
@@ -2017,7 +1831,7 @@ public sealed class GpuWaveSimulator : IWaveEngine, IDisposable
 	private int _dTableCapacity;
 
 	/// <summary>The least room given to the damping table at <see cref="Build"/>: a scene's blue levels plus a rim's depths come to a few hundred values.</summary>
-	private const int DTableRoom = 4096;
+	private const int DTableRoom = GpuTables.DTableRoom;
 
 	/// <summary>The image sources' cell indices and levels bound to <c>apply_sources</c> (unset without image sources); refilled by <see cref="TryReplaceScene"/>.</summary>
 	private IntPtr _sourceIndexBuffer;
