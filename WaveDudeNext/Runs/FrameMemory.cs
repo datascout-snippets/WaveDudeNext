@@ -94,7 +94,46 @@ public static class FrameMemory
 	/// measured next to its predecessor's store under-budgets by that store's size and spills a run that fits
 	/// (found on a 16 GB laptop, 2026-10-16).</param>
 	public static long Budget(int percentOfPhysical, long reclaimedBytes = 0)
-		=> Budget(AvailableBytes(), PhysicalBytes(), percentOfPhysical, reclaimedBytes);
+		=> Math.Min(Allocator.Capacity, OperatingSystem.IsBrowser()
+			? BrowserBudget(PhysicalBytes(), percentOfPhysical)
+			: Budget(AvailableBytes(), PhysicalBytes(), percentOfPhysical, reclaimedBytes));
+
+	private static IFrameAllocator _allocator = new NativeFrameAllocator();
+
+	/// <summary>
+	/// Where the stores' frames are allocated: the process's native memory unless a head has set its own
+	/// (<see cref="IFrameAllocator"/>), whose capacity then bounds the <see cref="Budget(int, long)"/>. Set once, at the
+	/// application's start, before the first run; a store keeps the one it was made with.
+	/// </summary>
+	public static IFrameAllocator Allocator
+	{
+		get => _allocator;
+		set => _allocator = value ?? throw new ArgumentNullException(nameof(value));
+	}
+
+	/// <summary>What the program in a browser page keeps of its WebAssembly memory for itself: 1 GB (see <see cref="BrowserBudget"/>).</summary>
+	public const long BrowserReserve = 1L << 30;
+
+	/// <summary>
+	/// The frame budget in a browser. A page's program has its WebAssembly memory and no more: of a fixed ceiling that
+	/// nothing else shares and no free figure is reported for, so what a desktop measures ("available" less
+	/// <see cref="Margin"/>) came to nothing there. The frames get all of it but <see cref="BrowserReserve"/>, which
+	/// stays for the runtime, the engines' host arrays and the pictures (measured in the browser head on 2026-11-13:
+	/// the program itself took 0.29 GB at its start and 0.43 GB beside a run's frames). The browser head is built with
+	/// the ceiling at 4 GB, the most a 32-bit program addresses, so the frames have 3 GB (2026-11-13, the user's word
+	/// that the memory is to be used more boldly; half of the 2 GB a runtime has by default, 1 GB, since 2026-11-12),
+	/// and it keeps them in a part of the memory of their own (its <see cref="Allocator"/>, which says why). Of a
+	/// memory too small to keep the reserve, half. The user's percentage bounds it as on a desktop, as a share of the ceiling. The
+	/// outgoing run's frames are released before the new ones are allocated, so nothing is added for them; and should
+	/// the memory not be had after all, the store writes the rest to its file, as everywhere.
+	/// </summary>
+	/// <param name="heapBytes">The memory's ceiling (<see cref="PhysicalBytes"/> there).</param>
+	/// <param name="percentOfPhysical">The user's upper bound, 1 to 100 (clamped), or <see cref="Automatic"/> for none.</param>
+	internal static long BrowserBudget(long heapBytes, int percentOfPhysical)
+	{
+		long share = Math.Max(heapBytes - BrowserReserve, heapBytes / 2);
+		return percentOfPhysical <= Automatic ? share : Math.Min(share, (long)(heapBytes * (Math.Clamp(percentOfPhysical, 1, 100) / 100.0)));
+	}
 
 	/// <summary>The arithmetic of <see cref="Budget(int, long)"/> on given measurements, exact for the harness.</summary>
 	internal static long Budget(long availableBytes, long physicalBytes, int percentOfPhysical, long reclaimedBytes)

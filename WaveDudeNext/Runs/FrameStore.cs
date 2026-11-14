@@ -17,7 +17,6 @@
 
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
-using Microsoft.Win32.SafeHandles;
 using NLog;
 using WaveDudeNext.Engine;
 
@@ -29,11 +28,13 @@ namespace WaveDudeNext.Runs;
 /// shrunk by the shape's divisor, each sample a <see cref="Half"/> or a palette index byte (<see cref="Format"/>,
 /// 2026-10-15; the reduced preview). Two tiers
 /// (2026-10-14): the first frames of the run, as many as the memory budget given at creation holds
-/// (<see cref="RamFrames"/>), live in native memory; the rest go to a temporary file that is created only when
+/// (<see cref="RamFrames"/>), live in native memory (<see cref="FrameMemory.Allocator"/>'s); the rest go to a temporary file that is created only when
 /// a run does not fit. A run that fits never touches the disk, so it is bound by the engine and not by the
 /// drive; a run that does not fit is disk-bound for its tail only. The file is pre-sized for the frames it
-/// will hold, marked temporary, and deleted when the store is disposed or the process ends
-/// (<see cref="FileOptions.DeleteOnClose"/>).
+/// will hold and deleted when the store is disposed. It is a file of the frame cache's storage
+/// (<see cref="FrameCache.Storage"/>, an <see cref="IFrameFile"/>; 2026-11-13): on a drive by default, marked
+/// temporary and deleted with the process at the latest (<see cref="FileOptions.DeleteOnClose"/>), and in a
+/// browser, which has no drive, in the storage the browser manages for the page.
 /// </summary>
 /// <remarks>
 /// Why not the operating system's cache or a memory mapping: both keep dirty pages in memory only up to
@@ -79,10 +80,10 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 	private readonly CancellationTokenSource _prepareCancel = new();
 	private readonly Task _preparer;
 	private readonly Task? _memoryReleased;
+	private readonly IFrameAllocator _allocator = FrameMemory.Allocator;
 	private readonly byte[] _staging;
 	private byte[]? _staging2;
-	private FileStream? _file;
-	private SafeFileHandle? _handle;
+	private IFrameFile? _file;
 	private volatile int _firstSpilled = NoSpill;
 	private int _count;
 	private bool _disposed;
@@ -148,7 +149,7 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 				void* block;
 				try
 				{
-					block = NativeMemory.Alloc((nuint)FrameBytes);
+					block = (void*)_allocator.Allocate(FrameBytes);
 				}
 				catch (OutOfMemoryException)
 				{
@@ -161,7 +162,7 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 				}
 				catch (OperationCanceledException)
 				{
-					NativeMemory.Free(block);
+					_allocator.Free((nint)block);
 					break;
 				}
 			}
@@ -188,7 +189,7 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 	/// Creates a store for a run of <paramref name="capacity"/> frames: in memory up to <paramref name="ramBudget"/>
 	/// bytes, the rest in the file at <paramref name="path"/> (which must not exist; it is only created when needed).
 	/// </summary>
-	/// <param name="path">File path for the spilled frames, normally from <see cref="FrameCache.NewPath"/>.</param>
+	/// <param name="path">The file for the spilled frames in the frame cache's storage, normally from <see cref="FrameCache.NewPath"/>; with the default storage any file path.</param>
 	/// <param name="shape">The frames' geometry and format (<see cref="RunSpec.Shape"/>).</param>
 	/// <param name="layers">The planes every frame holds; at least one.</param>
 	/// <param name="capacity">Number of frames the run produces (<see cref="RunSpec.FrameCount"/>).</param>
@@ -203,7 +204,7 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 	public static FrameStore Create(string path, int width, int height, FrameLayers layers, int capacity, int visualizeEvery, long? ramBudget = null, Task? memoryReleased = null) =>
 		Create(path, FrameShape.Full(width, height), layers, capacity, visualizeEvery, ramBudget, memoryReleased);
 
-	/// <summary>Bytes a file holding <paramref name="capacity"/> frames of this shape takes, for <see cref="FrameCache.CheckSpace"/> (the spilled part of a run).</summary>
+	/// <summary>Bytes a file holding <paramref name="capacity"/> frames of this shape takes, for <see cref="FrameCache.CheckSpace(long)"/> (the spilled part of a run).</summary>
 	public static long SizeOf(FrameShape shape, FrameLayers layers, int capacity) => HeaderSize + capacity * FrameBytesOf(shape, layers);
 
 	/// <summary>Bytes <paramref name="frames"/> frames of this shape take in memory, no file header: a run's need against <see cref="FrameMemory.Budget(int, long)"/>.</summary>
@@ -219,7 +220,7 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 		return layerCount * shape.PlaneBytes;
 	}
 
-	/// <summary>Full path of the file for the spilled frames; it exists only once a frame went there (<see cref="HasFile"/>).</summary>
+	/// <summary>The file for the spilled frames, by its full path or by the name the frame cache's storage gave it; it exists only once a frame went there (<see cref="HasFile"/>).</summary>
 	public string Path { get; }
 
 	/// <summary>The frames' geometry and format.</summary>
@@ -392,11 +393,11 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 			{
 				if (Has(FrameLayer.Field))
 				{
-					RandomAccess.Write(_handle!, field[..length], PlaneOffset(frame, FrameLayer.Field));
+					_file!.Write(field[..length], PlaneOffset(frame, FrameLayer.Field));
 				}
 				if (Has(FrameLayer.Intensity))
 				{
-					RandomAccess.Write(_handle!, intensity[..length], PlaneOffset(frame, FrameLayer.Intensity));
+					_file!.Write(intensity[..length], PlaneOffset(frame, FrameLayer.Intensity));
 				}
 			}
 			Volatile.Write(ref _count, frame + 1);
@@ -467,7 +468,7 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 			long offset = PlaneOffset(frame, layer);
 			while (bytes.Length > 0)
 			{
-				int read = RandomAccess.Read(_handle!, bytes, offset);
+				int read = _file!.Read(bytes, offset);
 				if (read <= 0)
 				{
 					throw new IOException("The frame store file ended early.");
@@ -509,7 +510,7 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 			{
 				if (_ram[i] != IntPtr.Zero)
 				{
-					NativeMemory.Free((void*)_ram[i]);
+					_allocator.Free(_ram[i]);
 					_ram[i] = IntPtr.Zero;
 				}
 			}
@@ -518,7 +519,7 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 		{
 			_lifetime.ExitWriteLock();
 		}
-		_file?.Dispose();
+		_file?.Close();
 		// the producer ends at its next check; the blocks it queued (and any it adds before noticing) are freed here
 		try
 		{
@@ -530,7 +531,7 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 		}
 		while (_prepared.TryTake(out IntPtr block))
 		{
-			NativeMemory.Free((void*)block);
+			_allocator.Free(block);
 		}
 		_prepareCancel.Dispose();
 	}
@@ -607,35 +608,19 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 		}
 	}
 
-	/// <summary>Creates the pre-sized temporary file for the frames from <paramref name="firstFrame"/> on.</summary>
+	/// <summary>Creates the pre-sized temporary file for the frames from <paramref name="firstFrame"/> on, in the frame cache's storage.</summary>
 	private void CreateFile(int firstFrame)
 	{
-		_file = new FileStream(Path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
+		_file = FrameCache.CreateFile(Path);
 		try
 		{
-			// a temporary file: the cache manager keeps its pages in memory while it can instead of writing
-			// them out eagerly (a hint only); the file is deleted in the end
-			try
-			{
-				File.SetAttributes(Path, FileAttributes.Temporary | FileAttributes.NotContentIndexed);
-			}
-			catch (IOException)
-			{
-				// a hint only
-			}
-			catch (UnauthorizedAccessException)
-			{
-				// a hint only
-			}
 			_file.SetLength(HeaderSize + (Capacity - firstFrame) * FrameBytes);
-			_handle = _file.SafeFileHandle;
 			WriteHeader(firstFrame);
 		}
 		catch
 		{
-			_file.Dispose();
+			_file.Close();
 			_file = null;
-			_handle = null;
 			throw;
 		}
 	}
@@ -656,6 +641,6 @@ public sealed unsafe class FrameStore : IFrameSource, IDisposable
 		BitConverter.TryWriteBytes(header[40..], CanvasWidth);
 		BitConverter.TryWriteBytes(header[44..], CanvasHeight);
 		BitConverter.TryWriteBytes(header[48..], IntensityRoot ? 1 : 0);
-		RandomAccess.Write(_handle!, header, 0);
+		_file!.Write(header, 0);
 	}
 }

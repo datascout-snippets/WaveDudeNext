@@ -1836,6 +1836,119 @@ internal static class Program
 			Check(same, "every frame reads back from its tier");
 		}
 		Check(!File.Exists(path), "tiered store: file deleted on dispose");
+		// the same two tiers with a head's own storage in the frame cache's place (2026-11-13: the browser head's is the
+		// storage the browser manages for the page): the store's file is that storage's, sized, written, read and closed there
+		IFrameStorage disk = FrameCache.Storage;
+		var memory = new MemoryFrameStorage(1L << 30);
+		try
+		{
+			FrameCache.Storage = memory;
+			string name = FrameCache.NewPath();
+			string refusal = "";
+			try
+			{
+				FrameCache.CheckSpace(1L << 40);
+			}
+			catch (RunSpecException e)
+			{
+				refusal = e.Message;
+			}
+			FrameCache.CheckSpace(1L << 20);
+			FrameCache.Sweep();
+			Check(name == "memory-1" + FrameCache.Extension && memory.Sweeps == 1
+				&& refusal.StartsWith("The run needs 1024 GB of frame cache in a test's memory, but only 1 GB is free.", StringComparison.Ordinal),
+				"a head's storage: the name, the sweep and the room are its own (" + refusal + ")");
+			bool same;
+			bool sized;
+			int writes;
+			using (var store = FrameStore.Create(name, scene.Width, scene.Height, FrameLayers.Field | FrameLayers.Intensity, 5, 2, ramBudget: 2L * 2 * scene.Width * scene.Height * 2))
+			{
+				MemoryFrameStorage.MemoryFrameFile file = memory.Files[name];
+				sized = store.HasFile && file.Length == FrameStore.HeaderSize + 3 * store.FrameBytes && file.Length == store.FileBytes && !File.Exists(name);
+				float[][] fields = new float[5][];
+				for (int frame = 0; frame < 5; frame++)
+				{
+					Run(cpu, 2);
+					fields[frame] = (float[])cpu.FieldData.Clone();
+					store.Write(frame, cpu.FieldData, cpu.IntensityData, cpu.Stride);
+				}
+				same = store.FramesInMemory == 2 && store.FramesOnDisk == 3;
+				var copy = new Half[scene.Width * scene.Height];
+				for (int frame = 0; frame < 5 && same; frame++)
+				{
+					same = store.CopyLayer(frame, FrameLayer.Field, copy);
+					for (int y = 0; y < scene.Height && same; y++)
+					{
+						for (int x = 0; x < scene.Width; x++)
+						{
+							if (copy[y * scene.Width + x] != (Half)fields[frame][(y + 1) * cpu.Stride + x + 1])
+							{
+								same = false;
+								break;
+							}
+						}
+					}
+				}
+				// the header and two planes of three frames written, the field of those three read
+				writes = file.Writes;
+				same &= file.Reads == 3;
+			}
+			Check(sized && same && writes == 1 + 3 * 2 && memory.Created == 1 && memory.Files.Count == 0,
+				"a head's storage: the store's file is made, sized, written and read there, and gone when the store is disposed (" + writes + " writes)");
+		}
+		finally
+		{
+			FrameCache.Storage = disk;
+		}
+		// a head's own allocator for the frames (2026-11-13: the browser head keeps them in a part of its program's memory
+		// of their own): its capacity bounds the budget, the store's blocks are its, and a refusal sends the rest to the file
+		IFrameAllocator native = FrameMemory.Allocator;
+		long frameBytes = 2L * scene.Width * scene.Height * 2;
+		var counting = new CountingFrameAllocator(3 * frameBytes);
+		try
+		{
+			FrameMemory.Allocator = counting;
+			long bounded = FrameMemory.Budget(FrameMemory.Automatic);
+			path = Path.Combine(Path.GetTempPath(), "library_check-allocator-" + Guid.NewGuid().ToString("N") + FrameCache.Extension);
+			bool same;
+			int held, onDisk;
+			// a budget for four frames where the allocator holds three: the fourth is refused and goes to the file with the fifth
+			using (var store = FrameStore.Create(path, scene.Width, scene.Height, FrameLayers.Field | FrameLayers.Intensity, 5, 2, ramBudget: 4 * frameBytes))
+			{
+				float[][] fields = new float[5][];
+				for (int frame = 0; frame < 5; frame++)
+				{
+					Run(cpu, 2);
+					fields[frame] = (float[])cpu.FieldData.Clone();
+					store.Write(frame, cpu.FieldData, cpu.IntensityData, cpu.Stride);
+				}
+				held = counting.Blocks;
+				onDisk = store.FramesOnDisk;
+				same = store.FramesInMemory == 3;
+				var copy = new Half[scene.Width * scene.Height];
+				for (int frame = 0; frame < 5 && same; frame++)
+				{
+					same = store.CopyLayer(frame, FrameLayer.Field, copy);
+					for (int y = 0; y < scene.Height && same; y++)
+					{
+						for (int x = 0; x < scene.Width; x++)
+						{
+							if (copy[y * scene.Width + x] != (Half)fields[frame][(y + 1) * cpu.Stride + x + 1])
+							{
+								same = false;
+								break;
+							}
+						}
+					}
+				}
+			}
+			Check(bounded == 3 * frameBytes && held == 3 && onDisk == 2 && counting.Refused == 1 && same && counting.Blocks == 0 && counting.Allocations == 3 && !File.Exists(path),
+				$"a head's allocator: its capacity bounds the budget, three frames are held in its blocks, the refused fourth and the fifth go to the file, all read back, the blocks returned ({held} held, {onDisk} on disk, {counting.Refused} refused, {counting.Blocks} left)");
+		}
+		finally
+		{
+			FrameMemory.Allocator = native;
+		}
 		// a run that fits never touches the disk
 		path = Path.Combine(Path.GetTempPath(), "library_check-ram-" + Guid.NewGuid().ToString("N") + FrameCache.Extension);
 		using (var store = FrameStore.Create(path, scene.Width, scene.Height, FrameLayers.Field, 3, 1, ramBudget: 1L << 30))
@@ -1861,6 +1974,56 @@ internal static class Program
 		Check(FrameMemory.PhysicalBytes() > 1L << 30 && FrameMemory.AvailableBytes() <= FrameMemory.PhysicalBytes() && FrameMemory.Budget(50) <= FrameMemory.PhysicalBytes() / 2
 			&& Math.Abs(automatic - Math.Max(0, FrameMemory.AvailableBytes() - FrameMemory.Margin)) < 512L << 20 && FrameMemory.Budget(50) <= automatic + (512L << 20) && FrameMemory.Budget(1) <= FrameMemory.PhysicalBytes() / 100,
 			"memory: " + FrameMemory.Gigabytes(FrameMemory.PhysicalBytes()) + " physical, " + FrameMemory.Gigabytes(FrameMemory.AvailableBytes()) + " available, automatic " + FrameMemory.Gigabytes(automatic) + ", at most 50 % " + FrameMemory.Gigabytes(FrameMemory.Budget(50)));
+		// a browser page's frames get its WebAssembly memory less 1 GB for the program, half of a memory too small for
+		// that, the user's percentage bounding it (2026-11-13; half of the memory since 2026-11-12)
+		Check(FrameMemory.BrowserBudget(4L << 30, FrameMemory.Automatic) == 3L << 30 && FrameMemory.BrowserBudget(4L << 30, 100) == 3L << 30
+			&& FrameMemory.BrowserBudget(4L << 30, 50) == 2L << 30 && FrameMemory.BrowserBudget(4L << 30, 25) == 1L << 30
+			&& FrameMemory.BrowserBudget(2L << 30, FrameMemory.Automatic) == 1L << 30 && FrameMemory.BrowserBudget(2L << 30, 25) == 512L << 20
+			&& FrameMemory.BrowserBudget(1L << 30, FrameMemory.Automatic) == 512L << 20,
+			"memory in a browser: 3 GB of a 4 GB memory by default and at 100 %, its share at 50 and 25 %, half of a memory of 2 GB or of 1");
+		// the cache folder's drive is asked by the folder's full path: a relative folder (a browser's, where the local
+		// application data folder has no path) has no root of its own, and the empty drive name was an ArgumentException
+		// no start of a run expects (2026-11-13)
+		string relativeCache = "cache-check-" + Environment.ProcessId;
+		try
+		{
+			string outcome;
+			try
+			{
+				FrameCache.CheckSpace(new DiskFrameStorage(relativeCache), 1);
+				outcome = "room";
+			}
+			catch (RunSpecException)
+			{
+				outcome = "no room";
+			}
+			catch (Exception e)
+			{
+				outcome = e.GetType().Name;
+			}
+			string refusal = "";
+			try
+			{
+				FrameCache.CheckSpace(new DiskFrameStorage(relativeCache), long.MaxValue / 2);
+			}
+			catch (RunSpecException e)
+			{
+				refusal = e.Message;
+			}
+			catch (Exception e)
+			{
+				refusal = e.GetType().Name;
+			}
+			Check(outcome == "room" && refusal.StartsWith("The run needs", StringComparison.Ordinal) && refusal.Contains(" GB is free", StringComparison.Ordinal),
+				"frame cache: a relative folder's drive is found, a byte fits it and far too much is refused in words (" + outcome + "; " + refusal + ")");
+		}
+		finally
+		{
+			if (Directory.Exists(relativeCache))
+			{
+				Directory.Delete(relativeCache);
+			}
+		}
 		// the outgoing run's frames count as available (reclaimed; the laptop finding of 2026-10-16): exact on the
 		// pure overload — 3 GB free + 5 GB reclaimed - 2 GB margin = 6 GB, capped by a 25 % share of 16 GB, never negative
 		const long gb = 1L << 30;

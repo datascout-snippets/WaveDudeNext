@@ -216,6 +216,7 @@ FramePresenter: CopyLayer -> 8-bit: FrameRenderer.RenderIndexed at the store's s
    the newest request is rendered
 ExportJob (own STA thread): CopyLayer -> FrameRenderer -> outline -> probe boxes/markers -> sinks (PNG, JPEG, MPEG-1, AVI, MP4, MOV)
 FrameStore: native memory up to the budget, the rest in a temp file (%LOCALAPPDATA%\WaveDudeNext\cache, DeleteOnClose)
+   or, in the browser head, in the storage the browser manages for the page (FrameCache.Storage, an IFrameStorage)
 ```
 
 - **Engine contract**: padded grid (`Stride = Width + 2 + 2 × Rim`: a negative damping edge is a rim of that many cells
