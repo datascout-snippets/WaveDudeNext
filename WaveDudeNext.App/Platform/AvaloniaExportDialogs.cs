@@ -29,10 +29,12 @@ namespace WaveDudeNext.App.Platform;
 /// through Avalonia's storage provider with the title and the filters of the string table, its filter order being
 /// <see cref="ExportFormats.All"/>'s, <see cref="ExportFormats.Stills"/>' for a still and one CSV filter for a probe's
 /// data; and the application's message window for the question about a sequence folder. Both answer later, as
-/// Avalonia's dialogs do; the models go on from the UI thread when they have.
+/// Avalonia's dialogs do; the models go on from the UI thread when they have. The top level is looked up when a
+/// dialog is asked for: the storage provider is any top level's, the message window needs a window, and where there
+/// is none (the browser head, whose dialogs are still to come) the folder question answers No.
 /// </summary>
-/// <param name="owner">The window the dialogs belong to, whose resources hold the strings.</param>
-public sealed class AvaloniaExportDialogs(Window owner) : IExportDialogs
+/// <param name="anchor">A control of the view the dialogs belong to, whose resources hold the strings.</param>
+public sealed class AvaloniaExportDialogs(Control anchor) : IExportDialogs
 {
 	/// <inheritdoc/>
 	public async Task<SavePick?> AskWhereToSaveAsync(ExportSubject subject, string folder, string name, IReadOnlyList<ExportFormat> formats, int formatIndex)
@@ -44,6 +46,10 @@ public sealed class AvaloniaExportDialogs(Window owner) : IExportDialogs
 			_ => "ExportDialogFilter",
 		}));
 		int preset = Math.Clamp(formatIndex, 0, Math.Max(0, types.Count - 1));
+		if (TopLevel.GetTopLevel(anchor)?.StorageProvider is not { } storage)
+		{
+			return null;
+		}
 		var options = new FilePickerSaveOptions
 		{
 			Title = Text(subject switch
@@ -59,9 +65,9 @@ public sealed class AvaloniaExportDialogs(Window owner) : IExportDialogs
 			FileTypeChoices = types,
 			SuggestedFileType = types.Count > 0 ? types[preset] : null,
 			ShowOverwritePrompt = true,
-			SuggestedStartLocation = folder.Length > 0 && Directory.Exists(folder) ? await owner.StorageProvider.TryGetFolderFromPathAsync(folder) : null,
+			SuggestedStartLocation = folder.Length > 0 && Directory.Exists(folder) ? await storage.TryGetFolderFromPathAsync(folder) : null,
 		};
-		IStorageFile? file = await owner.StorageProvider.SaveFilePickerAsync(options);
+		IStorageFile? file = await storage.SaveFilePickerAsync(options);
 		string? path = file?.TryGetLocalPath();
 		if (path == null)
 		{
@@ -75,7 +81,8 @@ public sealed class AvaloniaExportDialogs(Window owner) : IExportDialogs
 
 	/// <inheritdoc/>
 	public async Task<bool> AskToReplaceFolderAsync(string folder) =>
-		await MessageWindow.Show(owner, string.Format(Text("ExportFolderExistsFormat"), folder), MessageKind.Question, MessageButtons.YesNo) == MessageAnswer.Yes;
+		TopLevel.GetTopLevel(anchor) is Window owner
+		&& await MessageWindow.Show(owner, string.Format(Text("ExportFolderExistsFormat"), folder), MessageKind.Question, MessageButtons.YesNo) == MessageAnswer.Yes;
 
 	/// <summary>"Label|*.ext|Label 2|*.a;*.b" (the Win32 filter syntax the string tables keep) into picker file types.</summary>
 	internal static IReadOnlyList<FilePickerFileType> FileTypesFrom(string filter)
@@ -89,5 +96,5 @@ public sealed class AvaloniaExportDialogs(Window owner) : IExportDialogs
 		return types;
 	}
 
-	private string Text(string key) => owner.FindResource(key) as string ?? key;
+	private string Text(string key) => anchor.FindResource(key) as string ?? key;
 }

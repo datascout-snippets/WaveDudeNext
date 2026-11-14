@@ -42,10 +42,18 @@ public static class Program
 	/// font as the WPF head): the platform's default family is the text's, Segoe UI on Windows as the WPF head has it,
 	/// the system's UI font elsewhere. The port had bundled Inter. The text is shaped with whole-pixel advances
 	/// (<see cref="WholePixelShaper"/>, 2026-11-11), registered once the platform's services are up and before any text.
+	/// <para>
+	/// The desktop's configuration, and nothing a browser runs: the browser head references this assembly and keeps all of
+	/// it at publish (its string tables and themes are loaded by name at run time, which trimming cannot follow), so the
+	/// one call that names the desktop backends sits behind a platform test the trimmer knows the answer to, and those
+	/// backends (Win32, X11, macOS) stay out of the browser's download (2026-11-12).
+	/// </para>
 	/// </summary>
 	public static AppBuilder BuildAvaloniaApp()
-		=> AppBuilder.Configure<App>()
-			.UsePlatformDetect()
-			.LogToTrace()
-			.AfterPlatformServicesSetup(_ => WholePixelShaper.Install());
+		=> OperatingSystem.IsBrowser()
+			? throw new PlatformNotSupportedException("The desktop head's configuration; the browser head has its own.")
+			: AppBuilder.Configure<App>()
+				.UsePlatformDetect()
+				.LogToTrace()
+				.AfterPlatformServicesSetup(_ => WholePixelShaper.Install());
 }

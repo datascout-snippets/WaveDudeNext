@@ -39,7 +39,7 @@ namespace WaveDudeNext.App;
 /// before and after it (<see cref="Platform.EditBoundaries.Command"/>). The menus whose entries come from data (recent
 /// files, examples, panes, theme, zoom, language, the preview quality, the RAM cache) are filled here in code.
 /// </summary>
-public partial class MainWindow
+public partial class MainView
 {
 	/// <summary>The choices of Simulation > RAM cache size: automatic and 10 % to 100 % of the RAM as an upper bound (2026-10-15, the user's design).</summary>
 	public static int[] FrameMemoryOptions { get; } = [FrameMemory.Automatic, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
@@ -126,8 +126,19 @@ public partial class MainWindow
 		c.Save = Command(_ => Fire(SaveAsync()));
 		c.SaveAs = Command(_ => Fire(SaveAsAsync()));
 		c.CloseProject = Command(_ => Fire(CloseProjectAsync()), _ => Document.Filename != null);
-		c.Exit = Command(_ => Close());
-		c.About = Command(_ => Fire(new AboutWindow().ShowDialog(this)));
+		// Exit, About and the manual need a window: the desktop head's; the browser head has none (its dialogs are to come)
+		c.Exit = Command(_ => OwnerWindow?.Close());
+		c.About = Command(_ =>
+		{
+			if (OwnerWindow is { } owner)
+			{
+				Fire(new AboutWindow().ShowDialog(owner));
+			}
+			else
+			{
+				Logger.Info("About cannot be shown in this head yet");
+			}
+		});
 		c.Manual = Command(_ => ShowManual());
 		// the settings menus, bound in the markup as the WPF head's are: each entry's command carries its value, the check
 		// marks follow the settings and the controllers through bindings (2026-11-11; the port had filled these menus in
@@ -144,21 +155,30 @@ public partial class MainWindow
 		c.ToggleUseGpu = Command(_ => ToggleSetting(() => Settings.Default.UseGpu = !Settings.Default.UseGpu));
 		c.ToggleAutoRerun = Command(_ => ToggleSetting(() => Settings.Default.AutoRerun = !Settings.Default.AutoRerun));
 		c.ToggleMemoryWarning = Command(_ => ToggleSetting(() => Settings.Default.WarnWhenRamInsufficient = !Settings.Default.WarnWhenRamInsufficient));
+		// the system's font where the head offers it (the browser head): on asks the browser for its permission, which it
+		// gives only shortly after the click or key press that ran this command; the head says in the log what came of it
+		c.ToggleSystemFont = Command(_ =>
+		{
+			if (SystemFont is { } font)
+			{
+				Fire(font.SetUsedAsync(!font.IsUsed));
+			}
+		}, _ => SystemFont != null);
 		c.TogglePane = dockHost.ToggleCommand;
 		RegisterHotKeys(menu);
 		// Ctrl+Shift+Z is Redo's second gesture (the WPF head has both); the menu shows Ctrl+Y
-		KeyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.Z, KeyModifiers.Control | KeyModifiers.Shift), Command = c.Redo });
+		_keyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.Z, KeyModifiers.Control | KeyModifiers.Shift), Command = c.Redo });
 		// Escape is Stop's second gesture, the usual "stop what you are doing" key and the one without a modifier (the WPF
 		// head has both; 2026-11-11, found by RunCheck against this head); the menu shows Shift+F5. A text box lets an
 		// Escape through only when it changed nothing (EditBehavior), as in WPF
-		KeyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.Escape), Command = c.Stop });
+		_keyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.Escape), Command = c.Stop });
 	}
 
 	/// <summary>
-	/// The menu entries' HotKeys as key bindings of the window: a HotKey on an entry inside the menu bar registers nothing
+	/// The menu entries' HotKeys as key bindings of the top level: a HotKey on an entry inside the menu bar registers nothing
 	/// before its menu has opened once (the entries join the visual tree with the popup), so every gesture the markup
-	/// declares is registered here, at the window, with the entry's command and parameter; the markup stays the one place
-	/// that names them.
+	/// declares is collected here with the entry's command and parameter, and put on the window, or the browser's root,
+	/// when the view joins it (<see cref="OnAttachedToVisualTree"/>); the markup stays the one place that names them.
 	/// </summary>
 	private void RegisterHotKeys(ItemsControl items)
 	{
@@ -175,7 +195,7 @@ public partial class MainWindow
 				{
 					binding.CommandParameter = item.CommandParameter;
 				}
-				KeyBindings.Add(binding);
+				_keyBindings.Add(binding);
 			}
 			RegisterHotKeys(item);
 		}
@@ -216,7 +236,12 @@ public partial class MainWindow
 
 	private void ShowManual()
 	{
-		_manual = ManualWindow.ShowOrActivate(this);
+		if (OwnerWindow is not { } owner)
+		{
+			Logger.Info("The manual cannot be shown in this head yet");
+			return;
+		}
+		_manual = ManualWindow.ShowOrActivate(owner);
 		_manual.Closed += (_, _) => _manual = null;
 	}
 

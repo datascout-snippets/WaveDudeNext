@@ -29,7 +29,7 @@ namespace WaveDudeNext.App;
 /// scene image's watch, the preview's colours, and the live-editing rules (<see cref="LivePreview"/>: stale run, scratch
 /// frame, automatic re-run).
 /// </summary>
-public partial class MainWindow
+public partial class MainView
 {
 	private void OnProjectChanged(object? sender, ProjectChange change)
 	{

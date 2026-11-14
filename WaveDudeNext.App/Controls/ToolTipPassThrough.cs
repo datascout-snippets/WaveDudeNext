@@ -19,6 +19,7 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 namespace WaveDudeNext.App.Controls;
 
@@ -50,9 +51,19 @@ public static class ToolTipPassThrough
 
 	private static void OnLoaded(ToolTip tip, RoutedEventArgs e)
 	{
-		if (TopLevel.GetTopLevel(tip) is PopupRoot root && root.IsHitTestVisible)
+		if (TopLevel.GetTopLevel(tip) is PopupRoot root)
 		{
-			root.IsHitTestVisible = false;
+			if (root.IsHitTestVisible)
+			{
+				root.IsHitTestVisible = false;
+			}
+			return;
 		}
+		// no popup windows on this platform (a browser page): the tooltip lies in an overlay of the one top level, over
+		// the controls, and took the pointer there as the popup window did on the desktop (2026-11-13, the user's report
+		// on the browser head: tooltips "steal" the hover everywhere). The overlay's host is taken out of hit testing,
+		// so the pointer reaches what lies beneath; each opening has a host of its own
+		Control host = tip.FindAncestorOfType<OverlayPopupHost>() ?? (Control)tip;
+		host.IsHitTestVisible = false;
 	}
 }

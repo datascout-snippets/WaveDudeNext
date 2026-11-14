@@ -497,6 +497,15 @@ public sealed class AppCommands : INotifyPropertyChanged
 
 	private ICommand _toggleMemoryWarning = RelayCommand.Disabled;
 
+	/// <summary>View > Use the system's font, in a head that carries a font of its own (the browser's): turns the system's font on or off (<see cref="WaveDudeNext.App.Theming.ISystemFont"/>).</summary>
+	public ICommand ToggleSystemFont
+	{
+		get => _toggleSystemFont;
+		set => Set(ref _toggleSystemFont, value);
+	}
+
+	private ICommand _toggleSystemFont = RelayCommand.Disabled;
+
 	/// <summary>View > Panes: shows or hides the dock item given as the parameter (the dock host's own command).</summary>
 	public ICommand TogglePane
 	{
@@ -570,6 +579,7 @@ public sealed class AppCommands : INotifyPropertyChanged
 			yield return ToggleUseGpu;
 			yield return ToggleAutoRerun;
 			yield return ToggleMemoryWarning;
+			yield return ToggleSystemFont;
 			yield return TogglePane;
 		}
 	}

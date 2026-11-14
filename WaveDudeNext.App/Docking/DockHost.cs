@@ -152,6 +152,13 @@ public sealed class DockHost : Panel
 	/// <summary>Raised after the arrangement changed and the visual tree was rebuilt.</summary>
 	public event EventHandler? LayoutChanged;
 
+	/// <summary>
+	/// Raised when the drag of a splitter between two children has finished: the arrangement is the same, the sizes
+	/// <see cref="SaveLayout"/> gives have changed (it reads them from the children as they are arranged, so ask it
+	/// once the layout has run, not from this event's handler itself).
+	/// </summary>
+	public event EventHandler? SplitterMoved;
+
 	internal DockDragManager DragManager { get; }
 
 	/// <summary>Makes an item known to the host without showing it; same as adding it to <see cref="Items"/>.</summary>
@@ -832,7 +839,7 @@ public sealed class DockHost : Panel
 	/// 10 px, as upstream's own preview and manual splitters are: the port's rule is that everything is reachable from the
 	/// keyboard, with the focus shown in the accent colour (the theme <c>DockSplitterTheme</c>).
 	/// </summary>
-	private static void AddSplitter(Grid grid, int row, int column, bool rows)
+	private void AddSplitter(Grid grid, int row, int column, bool rows)
 	{
 		var splitter = new GridSplitter
 		{
@@ -845,6 +852,8 @@ public sealed class DockHost : Panel
 			Focusable = false,
 		};
 		splitter[!StyledElement.ThemeProperty] = new DynamicResourceExtension(SplitterThemeKey);
+		// a drag's end, the button released: the sizes are final (a head that saves the layout as it changes hears it)
+		splitter.DragCompleted += (_, _) => SplitterMoved?.Invoke(this, EventArgs.Empty);
 		if (rows)
 		{
 			splitter.Height = SplitterThickness;

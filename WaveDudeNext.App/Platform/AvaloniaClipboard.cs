@@ -31,8 +31,8 @@ namespace WaveDudeNext.App.Platform;
 /// count stays (Windows' clipboard sequence number; 0 elsewhere, where every question reads again). Writing is started
 /// and not awaited; a refusal is logged.
 /// </summary>
-/// <param name="owner">The window whose clipboard is used.</param>
-public sealed class AvaloniaClipboard(Window owner) : IClipboard
+/// <param name="anchor">A control of the view; the clipboard is its top level's (the window's, or the browser's root), looked up at each use.</param>
+public sealed class AvaloniaClipboard(Control anchor) : IClipboard
 {
 	private static readonly ILogger Logger = LogManager.GetLogger(typeof(AvaloniaClipboard).FullName!);
 
@@ -46,7 +46,7 @@ public sealed class AvaloniaClipboard(Window owner) : IClipboard
 	/// <inheritdoc/>
 	public bool TrySetText(string format, string text)
 	{
-		Avalonia.Input.Platform.IClipboard? clipboard = owner.Clipboard;
+		Avalonia.Input.Platform.IClipboard? clipboard = TopLevel.GetTopLevel(anchor)?.Clipboard;
 		if (clipboard == null)
 		{
 			Logger.Warn("No clipboard on this platform; nothing was copied");
@@ -99,7 +99,7 @@ public sealed class AvaloniaClipboard(Window owner) : IClipboard
 		bool refused = false;
 		try
 		{
-			if (owner.Clipboard is { } clipboard && await clipboard.TryGetDataAsync() is { } data)
+			if (TopLevel.GetTopLevel(anchor)?.Clipboard is { } clipboard && await clipboard.TryGetDataAsync() is { } data)
 			{
 				text = await data.TryGetValueAsync(DataFormat.CreateStringApplicationFormat(format)) ?? await data.TryGetTextAsync();
 			}
@@ -111,6 +111,14 @@ public sealed class AvaloniaClipboard(Window owner) : IClipboard
 			// until the clipboard's next change, and logged as a warning with its stack trace)
 			refused = true;
 			Logger.Debug("The clipboard is held by another program; the next question reads again ({0})", ex.Message);
+		}
+		catch (UnauthorizedAccessException ex)
+		{
+			// a browser refuses a read without the user's permission, and with it while the page is not focused: nothing
+			// is known, and the next question reads again (2026-11-12, the browser head: the refusal had gone unobserved
+			// and reached the status bar as a fatal error)
+			refused = true;
+			Logger.Debug("The clipboard may not be read now; the next question reads again ({0})", ex.Message);
 		}
 		catch (InvalidOperationException)
 		{

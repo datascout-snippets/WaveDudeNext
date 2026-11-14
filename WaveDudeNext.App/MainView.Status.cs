@@ -29,13 +29,12 @@ namespace WaveDudeNext.App;
 /// its level; a double-click on the bar opens the Messages pane. The run's text and the export's progress are bound in
 /// the markup.
 /// </summary>
-public partial class MainWindow
+public partial class MainView
 {
-	/// <summary>Hears the status bar's log target from the window's first show to its closing.</summary>
+	/// <summary>Hears the status bar's log target from the view's creation to its host's closing (<see cref="Shutdown"/>).</summary>
 	private void AttachStatusBar()
 	{
 		StatusBarTarget.Attach(ShowStatusLine);
-		Closed += (_, _) => StatusBarTarget.Detach(ShowStatusLine);
 		statusBar.DoubleTapped += (_, _) => ShowMessages();
 	}
 
