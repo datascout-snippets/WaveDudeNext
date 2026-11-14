@@ -168,7 +168,10 @@ harnesses run.
   `DOTNET_ReadyToRun=0` let it start, which named the cause); that folder would need a clean before every publish. Version in
   `Directory.Build.props`; the commit hash lands in About. **A release adds its version to the problem form before its tag**
   (2026-11-05, the user's choice): the Version dropdown in `.github/ISSUE_TEMPLATE/problem.yml` is a fixed list, since GitHub's
-  forms cannot read releases, so the new version goes in at the top, in the commit that bumps `Directory.Build.props`. The license header is the `.editorconfig`
+  forms cannot read releases, so the new version goes in at the top, in the commit that bumps `Directory.Build.props`. The form has a
+  required Platform dropdown since 2026-11-14 (the user's request: Windows, Linux, macOS, Web browser), between the version and the
+  system information; its last two fields still speak of Help > About and of `WaveDudeNext.WPF.log`, which the browser version does
+  not have, their wording his. The license header is the `.editorconfig`
   `file_header_template` (its warranty sentence ends in a full stop: Roslyn cuts the value at `;`). LICENSE.md is
   the FSF's GPL-3.0 Markdown verbatim, nothing else (GitHub's detector rejects additions); the About dialog shows
   it as a document built by `Build/Documents.targets`, whose converter `Build/MarkdownToFlowDocument.cs` (an inline

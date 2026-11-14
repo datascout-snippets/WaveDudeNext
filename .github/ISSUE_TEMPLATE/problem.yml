@@ -15,7 +15,7 @@
 # version. It is distributed WITHOUT ANY WARRANTY. See the LICENSE.md file or
 # <https://www.gnu.org/licenses/>.
 
-# The issue form for a problem report: what happened, the version, the system information Help > About copies, and the log file.
+# The issue form for a problem report: what happened, the version, the platform, the system information Help > About copies, and the log file.
 name: Problem report
 description: Something in WaveDude Next does not work as it should
 labels: [bug]
@@ -43,6 +43,18 @@ body:
         - 0.1.1
         - 0.1.0
         - Built from source or another version
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: The operating system WaveDude Next runs on, or the web browser for the version that runs in a browser tab.
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - Web browser
     validations:
       required: true
   - type: textarea
