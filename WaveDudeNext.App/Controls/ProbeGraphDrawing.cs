@@ -29,15 +29,15 @@ namespace WaveDudeNext.App.Controls;
 /// dark box, the axes with their labels, the curve and the title strip. Used by the preview's
 /// <see cref="ProbeGraphOverlay"/> (screen pixels, the box scaled with the picture); the export's painter draws the
 /// same layout on SkiaSharp. Colours are upstream's, fixed, not themed: the box sits on the picture. The brushes and
-/// pens are immutable, the text cache is the UI thread's.
+/// pens are immutable, the text cache is the UI thread's. The graph font is the family the caller names, the one its
+/// control inherits, as the UI's text: the platform's on the desktop (Segoe UI on Windows), and in the browser head
+/// the one that head carries or, once the user has allowed it, the system's, which changes while the application
+/// runs (2026-11-14; until then the font manager's default family, which is fixed at the start).
 /// </summary>
 public static class ProbeGraphDrawing
 {
 	/// <summary>The fixed label size in pixels (text does not scale with the box).</summary>
 	public const double FontSize = 11.0;
-
-	/// <summary>The graph font: the application's default family, the platform's (Segoe UI on Windows), as the UI's text.</summary>
-	public static readonly Typeface Typeface = Typeface.Default;
 
 	/// <summary>The box's fill, upstream's ARGB(235, 14, 16, 22).</summary>
 	public static readonly Color BackgroundColor = Color.FromArgb(235, 14, 16, 22);
@@ -55,20 +55,19 @@ public static class ProbeGraphDrawing
 
 	// cached, as upstream did: built afresh, a draw of the boxes cost over 2 ms per picture, mostly the text, and the
 	// boxes are drawn on every position change and probe update; the readout changes per frame, so the cache is cleared
-	// when it grows large; the culture is part of the key
-	private static readonly Dictionary<(string Text, double Size, IBrush Brush, string Culture), FormattedText> TextCache = [];
+	// when it grows large; the culture and the font family are part of the key
+	private static readonly Dictionary<(string Text, double Size, IBrush Brush, string Culture, FontFamily Family), FormattedText> TextCache = [];
 	private const int TextCacheLimit = 4096;
 
 	/// <summary>
-	/// The text metrics of the graph font, for <see cref="ProbeGraph.Layout"/>: the line height and a measure of label
-	/// widths. Avalonia lays text out in DIPs and scales it to the device itself, so the metrics are the same at every
-	/// scale; the parameter names the scale for symmetry with the hairline arithmetic and is not used.
+	/// The text metrics of the graph font in <paramref name="family"/>, for <see cref="ProbeGraph.Layout"/>: the line
+	/// height and a measure of label widths. Avalonia lays text out in DIPs and scales it to the device itself, so the
+	/// metrics are the same at every scale.
 	/// </summary>
-	public static ProbeGraphStyle MakeStyle(double scale)
+	public static ProbeGraphStyle MakeStyle(FontFamily family)
 	{
-		_ = scale;
-		float lineHeight = (float)Formatted("0", FontSize, LabelBrush).Height;
-		return new ProbeGraphStyle((float)FontSize, lineHeight, text => (float)Formatted(text, FontSize, LabelBrush).Width);
+		float lineHeight = (float)Formatted("0", FontSize, LabelBrush, family).Height;
+		return new ProbeGraphStyle((float)FontSize, lineHeight, text => (float)Formatted(text, FontSize, LabelBrush, family).Width);
 	}
 
 	/// <summary>A line a whole number of device pixels thick, in DIPs: one pixel at 100 %, two at 150 and 200 %.</summary>
@@ -79,7 +78,8 @@ public static class ProbeGraphDrawing
 	/// <param name="layout">The box's geometry and text.</param>
 	/// <param name="border">The border pen for a selected box, or null for the usual one.</param>
 	/// <param name="scale">The device pixels per DIP, for the hairline.</param>
-	public static void DrawBox(DrawingContext dc, ProbeGraphLayout layout, IPen? border, double scale)
+	/// <param name="family">The font family of the box's text, the one the layout was measured in (<see cref="MakeStyle"/>).</param>
+	public static void DrawBox(DrawingContext dc, ProbeGraphLayout layout, IPen? border, double scale, FontFamily family)
 	{
 		double w = layout.Width;
 		double h = layout.Height;
@@ -107,7 +107,7 @@ public static class ProbeGraphDrawing
 					continue;
 				}
 				// right-aligned by position, not by a text width limit, which would wrap the label onto a second line
-				FormattedText label = Formatted(tick.Label, fontPx, LabelBrush);
+				FormattedText label = Formatted(tick.Label, fontPx, LabelBrush, family);
 				double lx = Math.Max(layout.LabelLeft, plotLeft - ProbeGraph.LabelGap - label.Width);
 				dc.DrawText(label, new Point(lx, Math.Clamp(tick.Position - label.Height / 2, plotTop - label.Height / 2, plotBottom - label.Height / 2)));
 			}
@@ -120,7 +120,7 @@ public static class ProbeGraphDrawing
 				{
 					continue;
 				}
-				FormattedText label = Formatted(tick.Label, fontPx, LabelBrush);
+				FormattedText label = Formatted(tick.Label, fontPx, LabelBrush, family);
 				double lx = Math.Clamp(tick.Position - label.Width / 2, ProbeGraph.EdgePad, Math.Max(ProbeGraph.EdgePad, w - label.Width - ProbeGraph.EdgePad));
 				dc.DrawText(label, new Point(lx, plotBottom + 2));
 			}
@@ -131,12 +131,12 @@ public static class ProbeGraphDrawing
 		double readoutWidth = 0;
 		if (layout.Readout.Length > 0)
 		{
-			FormattedText readout = Formatted(layout.Readout, fontPx, CurveBrush);
+			FormattedText readout = Formatted(layout.Readout, fontPx, CurveBrush, family);
 			readoutWidth = readout.Width;
 			dc.DrawText(readout, new Point(w - readoutWidth - 8, layout.TitleTop));
 		}
 		// the title is built afresh: its width limit and trimming are set on the object, which a cached one would carry over
-		var title = new FormattedText(layout.Title, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, Typeface, fontPx, TitleBrush)
+		var title = new FormattedText(layout.Title, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, new Typeface(family), fontPx, TitleBrush)
 		{
 			MaxLineCount = 1,
 			MaxTextWidth = Math.Max(10, w - readoutWidth - 16),
@@ -184,17 +184,17 @@ public static class ProbeGraphDrawing
 		}
 	}
 
-	/// <summary>One line of text in the graph font, cached by its text, size, brush and culture.</summary>
-	public static FormattedText Formatted(string text, double size, IBrush brush)
+	/// <summary>One line of text in the graph font of <paramref name="family"/>, cached by its text, size, brush, culture and family.</summary>
+	public static FormattedText Formatted(string text, double size, IBrush brush, FontFamily family)
 	{
-		var key = (text, size, brush, CultureInfo.CurrentUICulture.Name);
+		var key = (text, size, brush, CultureInfo.CurrentUICulture.Name, family);
 		if (!TextCache.TryGetValue(key, out FormattedText? formatted))
 		{
 			if (TextCache.Count >= TextCacheLimit)
 			{
 				TextCache.Clear();
 			}
-			formatted = new FormattedText(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, Typeface, size, brush) { MaxLineCount = 1 };
+			formatted = new FormattedText(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, new Typeface(family), size, brush) { MaxLineCount = 1 };
 			TextCache[key] = formatted;
 		}
 		return formatted;

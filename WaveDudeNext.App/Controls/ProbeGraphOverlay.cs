@@ -23,6 +23,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
@@ -112,7 +113,7 @@ public sealed class ProbeGraphOverlay : Panel
 	/// <summary>Screen distance an attached box must be dragged from the probe before it comes off: wider than <see cref="SnapRadius"/>, so a drag near the edge does not attach and detach in turn (hysteresis).</summary>
 	public const double SnapRelease = 28.0;
 
-	/// <summary>The text metrics handed to the layout, built once (they do not depend on the scale, see <see cref="ProbeGraphDrawing.MakeStyle"/>).</summary>
+	/// <summary>The text metrics handed to the layout, built once for the font family the overlay inherits and again when that changes (they do not depend on the scale, see <see cref="ProbeGraphDrawing.MakeStyle"/>).</summary>
 	private ProbeGraphStyle? _style;
 
 	private readonly HashSet<INotifyPropertyChanged> _subscribed = [];
@@ -244,7 +245,13 @@ public sealed class ProbeGraphOverlay : Panel
 	protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
 	{
 		base.OnPropertyChanged(change);
-		if (change.Property == ProjectProperty)
+		if (change.Property == TextElement.FontFamilyProperty)
+		{
+			// the boxes' text is measured and drawn in the inherited family
+			_style = null;
+			InvalidateGraphs();
+		}
+		else if (change.Property == ProjectProperty)
 		{
 			if (change.GetOldValue<Project?>() is { } old)
 			{
@@ -517,7 +524,9 @@ public sealed class ProbeGraphOverlay : Panel
 			return;
 		}
 		double scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
-		ProbeGraphStyle style = _style ??= ProbeGraphDrawing.MakeStyle(scale);
+		// the family the overlay inherits, the controls' own (ProbeGraphDrawing says why)
+		FontFamily family = TextElement.GetFontFamily(this);
+		ProbeGraphStyle style = _style ??= ProbeGraphDrawing.MakeStyle(family);
 		object? selected = SelectedItem;
 		foreach ((Probe probe, Rect box) in DrawnBoxes(project, size))
 		{
@@ -530,7 +539,7 @@ public sealed class ProbeGraphOverlay : Panel
 			IPen? border = ReferenceEquals(probe, selected) && AccentBrush is { } accent ? new Pen(accent, ProbeGraphDrawing.Hairline(scale)) : null;
 			using (context.PushTransform(Matrix.CreateTranslation(box.X, box.Y)))
 			{
-				ProbeGraphDrawing.DrawBox(context, layout, border, scale);
+				ProbeGraphDrawing.DrawBox(context, layout, border, scale, family);
 			}
 		}
 	}

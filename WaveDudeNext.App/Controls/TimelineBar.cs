@@ -23,6 +23,7 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -60,10 +61,13 @@ public sealed class TimelineBar : Control
 
 	private static readonly int[] TickCandidates = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
 
-	// the application's default font, the platform's (Segoe UI on Windows, which the WPF head names); the weight is the
-	// only thing a label varies
-	private static readonly Typeface LabelTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Normal, FontStretch.Normal);
-	private static readonly Typeface BoldLabelTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.SemiBold, FontStretch.Normal);
+	/// <summary>
+	/// A label's typeface: the font family the bar inherits, the controls' own, so the numbers follow a family that
+	/// changes while the application runs (the browser head's "Use the system's font", 2026-11-14; until then the
+	/// font manager's default family by name, which is fixed at the start). On the desktop that family resolves to
+	/// the platform's (Segoe UI on Windows, which the WPF head names). The weight is the only thing a label varies.
+	/// </summary>
+	private Typeface LabelTypeface(bool bold) => new(TextElement.GetFontFamily(this), FontStyle.Normal, bold ? FontWeight.SemiBold : FontWeight.Normal, FontStretch.Normal);
 
 	/// <summary>Identifies the <see cref="Maximum"/> property: the last frame index.</summary>
 	public static readonly StyledProperty<int> MaximumProperty =
@@ -270,7 +274,13 @@ public sealed class TimelineBar : Control
 	protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
 	{
 		base.OnPropertyChanged(change);
-		if (change.Property == MaximumProperty || change.Property == AvailableProperty)
+		if (change.Property == TextElement.FontFamilyProperty)
+		{
+			// the labels are laid out in the inherited family, which the cache's key does not carry
+			_labels.Clear();
+			InvalidateVisual();
+		}
+		else if (change.Property == MaximumProperty || change.Property == AvailableProperty)
 		{
 			// Avalonia coerces a property only when it is set; a new bound makes the current Value stale
 			CoerceValue(ValueProperty);
@@ -471,7 +481,7 @@ public sealed class TimelineBar : Control
 			{
 				_labels.Clear();
 			}
-			label = new FormattedText(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, bold ? BoldLabelTypeface : LabelTypeface, LabelFontSize, brush);
+			label = new FormattedText(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, LabelTypeface(bold), LabelFontSize, brush);
 			_labels[key] = label;
 		}
 		return label;

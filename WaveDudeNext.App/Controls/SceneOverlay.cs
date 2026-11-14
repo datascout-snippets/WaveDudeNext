@@ -24,6 +24,7 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
@@ -375,7 +376,12 @@ public sealed class SceneOverlay : Panel
 	protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
 	{
 		base.OnPropertyChanged(change);
-		if (change.Property == ProjectProperty)
+		if (change.Property == TextElement.FontFamilyProperty)
+		{
+			// the names beside the handles are drawn in the inherited family
+			InvalidateDrawing();
+		}
+		else if (change.Property == ProjectProperty)
 		{
 			if (change.OldValue is Project old)
 			{
@@ -1154,7 +1160,9 @@ public sealed class SceneOverlay : Panel
 	{
 		IBrush labelBrush = LabelBrushNow;
 		IBrush accent = AccentBrushNow;
-		var typeface = new Typeface(FontFamily.Default);
+		// the family the overlay inherits, the controls' own, so the names follow a family that changes while the
+		// application runs (the browser head's "Use the system's font", 2026-11-14); on the desktop the platform's
+		var typeface = new Typeface(TextElement.GetFontFamily(this));
 		var halo = new Pen(HaloBrush, 3.0, lineJoin: PenLineJoin.Round);
 		foreach (MarkerThumb thumb in Handles.OrderBy(thumb => thumb.IsSelectedMarker))
 		{
