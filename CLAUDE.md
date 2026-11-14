@@ -16,9 +16,20 @@ harnesses run.
 
 - **Git only on his word for the change at hand.** "Commit" in his latest message means commit now; otherwise
   report the work as uncommitted. Never commit, push, reset, amend, stash, checkout, rebase or merge on your own.
-  Enforced by `.claude/hooks/git-guard.py` (needs Python on the PATH, else every shell command is blocked); a shell
-  command whose text merely mentions git plus such a word is denied too. End commit messages with
-  `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+  Enforced by `.claude/hooks/git-guard.ps1` (Windows PowerShell, since 2026-11-14; a quarter of a second or more a
+  shell command for its start); a shell command whose text merely mentions git plus such a word is denied too. End
+  commit messages with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. **Hooks are read once, at a
+  session's start**: a changed `.claude/settings.json` serves the next session, and the running one goes on calling
+  what it read (seen that night: the old wording answered after the switch).
+- **No Python, anywhere, ever** (2026-11-14, the user's words: "I NEVER WANT TO SEE PYTHON AGAIN"; said twice that
+  night, the second time after a probe script of mine was patched by a Python one-liner in front of him): none in the
+  repository (GitHub's language bar showed 0.1 %: the git guard hook, ported to PowerShell, and the unused
+  `_tools/field_usage.py`, deleted; `.gitattributes` and `.editorconfig` no longer name the extension), none under
+  `%TEMP%`, no `python` command for an edit, a probe, a server or anything else. A file is edited with the Edit tool;
+  a script is PowerShell, written with the Write tool; a tool that lasts is .NET. Jeroen's Python, which the comments
+  of the numerics name as their origin, is history and stays named. The old `.claude/hooks/git-guard.py`
+  outlived its replacement by one session, which had read the old hook settings and ran it at every shell command and
+  message; deleted at the start of the next one (2026-11-14), the settings naming the PowerShell hook alone.
 - **No design changes on your own.** Anything beyond a mechanical change goes to him as options with pros and
   cons, complete, with links when naming a project, then built as chosen. Never invent a feature nobody asked for
   (the scratch budget that skipped "too expensive" frames was one; torn out). Bugs you find: fix and prove.

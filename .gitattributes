@@ -8,7 +8,6 @@
 *.config  text
 *.settings text
 *.md      text
-*.py      text
 
 *.ico     binary
 *.png     binary
