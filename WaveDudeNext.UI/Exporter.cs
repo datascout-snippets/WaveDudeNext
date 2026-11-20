@@ -324,7 +324,7 @@ public sealed class Exporter : ObservableObject
 		{
 			Logger.Error("{Format} export is not available on this computer: {Reason}", format, OperatingSystem.IsWindows()
 				? "Media Foundation is missing (Windows N needs the Media Feature Pack)"
-				: "MP4 is written with Windows Media Foundation; use QuickTime (MOV), AVI, MPEG-1 or a PNG sequence");
+				: "MP4 is written with Windows Media Foundation; use the QuickTime Photo-JPEG movie, MPEG-1 or a PNG sequence");
 			Failed?.Invoke(this, new ExportFailure("ExportError", null));
 			return;
 		}
